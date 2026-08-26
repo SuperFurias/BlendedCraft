@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "com.example.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"ExampleClientMixin",
+		"GuiGraphicsExtractorMixin",
+		"HumanoidArmorLayerMixin",
+		"HumanoidArmorLayerAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

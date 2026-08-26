@@ -1,0 +1,19 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "blendedcraft:blended"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "blendedcraft:blended"
+      }
+    ],
+    "humanoid_baby": [
+      {
+        "texture": "blendedcraft:blended"
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "blendedcraft",
+	"version": "${version}",
+	"name": "BlendedCraft",
+	"description": "Craft any tool or armor from any block or item. Mix materials for unique stats, dynamic blended textures, and per-part handle/head properties. Every combination creates a unique gear.",
+	"authors": [
+		"SuperFurias"
+	],
+	"contact": {
+		"homepage": "https://github.com/SuperFurias/BlendedCraft",
+		"sources": "https://github.com/SuperFurias/BlendedCraft"
+	},
+	"license": "MIT",
+	"icon": "assets/blendedcraft/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.example.ExampleMod"
+		],
+		"client": [
+			"com.example.client.ExampleModClient"
+		]
+	},
+	"mixins": [
+		"blendedcraft.mixins.json",
+		{
+			"config": "blendedcraft.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
