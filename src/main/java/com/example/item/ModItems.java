@@ -18,7 +18,6 @@ import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 import com.example.ExampleMod;
 
 public class ModItems {
-    public static final Item TEST = register(ModItemIds.TEST, Item::new, new Item.Properties());
 
     // Blended armor - custom blended material, equipped texture matches inventory blended texture
     public static final Item BLENDED_HELMET = register(ModItemIds.BLENDED_HELMET, Item::new,
@@ -48,10 +47,9 @@ public class ModItems {
     );
 
     public static final CreativeModeTab TEST_TAB = FabricCreativeModeTab.builder()
-            .icon(() -> new ItemStack(ModItems.TEST))
+            .icon(() -> new ItemStack(ModItems.BLENDED_PICKAXE))
             .title(Component.translatable("itemGroup.blendedcraft.test"))
             .displayItems((params, output) -> {
-                output.accept(ModItems.TEST);
                 output.accept(ModItems.BLENDED_HELMET);
                 output.accept(ModItems.BLENDED_CHESTPLATE);
                 output.accept(ModItems.BLENDED_LEGGINGS);
