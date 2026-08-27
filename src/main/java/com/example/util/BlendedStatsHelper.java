@@ -404,7 +404,7 @@ public class BlendedStatsHelper {
                     } else {
                         displayName = "Blended " + baseType;
                     }
-                    result.set(DataComponents.CUSTOM_NAME, Component.literal(displayName));
+                    result.set(DataComponents.CUSTOM_NAME, Component.literal(displayName).withStyle(s -> s.withItalic(false)));
                     return result;
                 }
             }
@@ -461,7 +461,7 @@ public class BlendedStatsHelper {
             } else {
                 displayName2 = "Blended " + baseType2;
             }
-            result.set(DataComponents.CUSTOM_NAME, Component.literal(displayName2));
+            result.set(DataComponents.CUSTOM_NAME, Component.literal(displayName2).withStyle(s -> s.withItalic(false)));
             try {
                 CompoundTag tag2 = new CompoundTag();
                 ListTag ingList2 = new ListTag();
@@ -483,7 +483,7 @@ public class BlendedStatsHelper {
             }
 
         } catch (Exception e) {
-            result.set(DataComponents.CUSTOM_NAME, Component.literal("Blended " + getBaseTypeName(result)));
+            result.set(DataComponents.CUSTOM_NAME, Component.literal("Blended " + getBaseTypeName(result)).withStyle(s -> s.withItalic(false)));
             e.printStackTrace();
         }
         return result;

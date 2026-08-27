@@ -166,31 +166,60 @@ public class ShapedRecipeMixin {
             int pH = this.pattern.height();
             java.util.List<ItemStack> headStacks = new java.util.ArrayList<>();
             java.util.List<ItemStack> handleStacks = new java.util.ArrayList<>();
+            java.util.List<Integer> headPos = new java.util.ArrayList<>();
+            java.util.List<Integer> handlePos = new java.util.ArrayList<>();
             // Try non-mirrored first, then mirrored
-            boolean collected = collectHeadHandle(input, ingredients, pW, pH, false, headStacks, handleStacks);
+            boolean collected = collectHeadHandle(input, ingredients, pW, pH, false, headStacks, handleStacks, headPos, handlePos);
             if (!collected || (headStacks.isEmpty() && handleStacks.isEmpty())) {
                 headStacks.clear();
                 handleStacks.clear();
-                collectHeadHandle(input, ingredients, pW, pH, true, headStacks, handleStacks);
+                headPos.clear();
+                handlePos.clear();
+                collectHeadHandle(input, ingredients, pW, pH, true, headStacks, handleStacks, headPos, handlePos);
             }
             CompoundTag tag = new CompoundTag();
             ListTag all = new ListTag();
             ListTag headTag = new ListTag();
             ListTag handleTag = new ListTag();
-            for (ItemStack s : input.items()) {
-                if (s.isEmpty()) continue;
-                all.add(StringTag.valueOf(BuiltInRegistries.ITEM.getKey(s.getItem()).toString()));
+            ListTag headPosTag = new ListTag();
+            ListTag handlePosTag = new ListTag();
+            ListTag allPosTag = new ListTag();
+            for (int y = 0; y < input.height(); y++) {
+                for (int x = 0; x < input.width(); x++) {
+                    ItemStack s = input.getItem(x, y);
+                    if (s.isEmpty()) continue;
+                    all.add(StringTag.valueOf(BuiltInRegistries.ITEM.getKey(s.getItem()).toString()));
+                    allPosTag.add(net.minecraft.nbt.IntTag.valueOf(x + y * 16));
+                }
             }
             for (ItemStack s : headStacks) headTag.add(StringTag.valueOf(BuiltInRegistries.ITEM.getKey(s.getItem()).toString()));
             for (ItemStack s : handleStacks) handleTag.add(StringTag.valueOf(BuiltInRegistries.ITEM.getKey(s.getItem()).toString()));
+            for (int p : headPos) headPosTag.add(net.minecraft.nbt.IntTag.valueOf(p));
+            for (int p : handlePos) handlePosTag.add(net.minecraft.nbt.IntTag.valueOf(p));
             tag.put("blended_ingredients", all);
             tag.put("blended_head", headTag);
             tag.put("blended_handle", handleTag);
+            tag.put("blended_head_pos", headPosTag);
+            tag.put("blended_handle_pos", handlePosTag);
+            tag.put("blended_ingredients_pos", allPosTag);
+            tag.putInt("blended_pattern_width", pW);
+            tag.putInt("blended_pattern_height", pH);
             StringBuilder keySb = new StringBuilder();
             for (int i = 0; i < all.size(); i++) {
                 if (i > 0) keySb.append("+");
                 keySb.append(all.getString(i).orElse(""));
             }
+            StringBuilder posKeySb = new StringBuilder();
+            for (int i = 0; i < headPos.size(); i++) {
+                if (i > 0) posKeySb.append(",");
+                posKeySb.append(headPos.get(i));
+            }
+            posKeySb.append("|");
+            for (int i = 0; i < handlePos.size(); i++) {
+                if (i > 0) posKeySb.append(",");
+                posKeySb.append(handlePos.get(i));
+            }
+            tag.putString("blended_pos_key", posKeySb.toString());
             tag.putString("blended_key", keySb.toString());
             modified.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
             // Fix naming: handle uniform, head can be mixed. Dominant based on head (>50% or 50% tie strongest)
@@ -208,7 +237,7 @@ public class ShapedRecipeMixin {
                     String headMat = getDisplayNameForHead(effective.get(0).getItem());
                     String display = headMat + " " + baseType;
                     // But if handle is different material, should we still show? The user says handle and head are separate, head single should be just head name
-                    modified.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(display));
+                    modified.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(display).withStyle(s -> s.withItalic(false)));
                 } else {
                     String display;
                     if (singleMat) {
@@ -218,7 +247,7 @@ public class ShapedRecipeMixin {
                     } else {
                         display = "Blended " + baseType;
                     }
-                    modified.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(display));
+                    modified.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(display).withStyle(s -> s.withItalic(false)));
                 }
             } catch (Exception ex2) { ex2.printStackTrace(); }
             // Fix stats: handle influences swing speed/durability, head influences mining/attack/durability
@@ -269,6 +298,10 @@ public class ShapedRecipeMixin {
     }
 
     private boolean collectHeadHandle(CraftingInput input, java.util.List<Optional<Ingredient>> ingredients, int pW, int pH, boolean mirrored, java.util.List<ItemStack> headOut, java.util.List<ItemStack> handleOut) {
+        return collectHeadHandle(input, ingredients, pW, pH, mirrored, headOut, handleOut, null, null);
+    }
+
+    private boolean collectHeadHandle(CraftingInput input, java.util.List<Optional<Ingredient>> ingredients, int pW, int pH, boolean mirrored, java.util.List<ItemStack> headOut, java.util.List<ItemStack> handleOut, java.util.List<Integer> headPosOut, java.util.List<Integer> handlePosOut) {
         if (input.width() != pW || input.height() != pH) return false;
         for (int y = 0; y < pH; y++) {
             for (int x = 0; x < pW; x++) {
@@ -279,8 +312,14 @@ public class ShapedRecipeMixin {
                 boolean isStick = ing.test(new ItemStack(Items.STICK));
                 ItemStack stack = input.getItem(x, y);
                 if (stack.isEmpty()) return false;
-                if (isStick) handleOut.add(stack);
-                else headOut.add(stack);
+                int pos = x + y * 16;
+                if (isStick) {
+                    handleOut.add(stack);
+                    if (handlePosOut != null) handlePosOut.add(pos);
+                } else {
+                    headOut.add(stack);
+                    if (headPosOut != null) headPosOut.add(pos);
+                }
             }
         }
         return true;

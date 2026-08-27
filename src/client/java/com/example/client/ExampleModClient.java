@@ -84,8 +84,7 @@ public class ExampleModClient implements ClientModInitializer {
 						}
 					}
 				}
-				String blendedKey = tag.getString("blended_key").orElse("");
-				if (!blendedKey.isEmpty()) lines.add(Component.literal("§8Key: §7" + blendedKey));
+
 			}
 			if (isShift) {
 				boolean isArmor = stack.get(DataComponents.EQUIPPABLE) != null;

@@ -21,6 +21,27 @@ public class ExampleMod implements ModInitializer {
 	public void onInitialize() {
 		ModItems.initialize();
 
+		// Backward compatibility: upgrade old blended items on player login (once, low overhead)
+		try {
+			net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+				var player = handler.getPlayer();
+				server.execute(() -> {
+					try {
+						int upgraded = com.example.util.BlendedLegacyUpgrader.upgradeInventory(player);
+						if (upgraded > 0) {
+							player.containerMenu.broadcastChanges();
+							LOGGER.info("Auto-upgraded {} old blended item(s) for {}", upgraded, player.getName().getString());
+						}
+					} catch (Exception e) {
+						LOGGER.warn("Legacy upgrade failed for {}: {}", player.getName().getString(), e.toString());
+					}
+				});
+			});
+			LOGGER.info("Registered blended legacy upgrader on player login (lightweight, scan-on-join only)");
+		} catch (Exception e) {
+			LOGGER.warn("Failed to register legacy upgrader: {}", e.toString());
+		}
+
 		LOGGER.info("Hello Fabric world! Registered test item and creative tab.");
 	}
 
