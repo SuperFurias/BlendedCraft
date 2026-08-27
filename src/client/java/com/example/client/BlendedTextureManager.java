@@ -30,8 +30,6 @@ public class BlendedTextureManager {
     private static final Logger LOGGER = LoggerFactory.getLogger("blendedcraft/BlendedTextureManager");
     private static final Map<String, Identifier> CACHE = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> GENERATING = new ConcurrentHashMap<>();
-    private static final Map<Identifier, NativeImage> IMAGE_CACHE = new ConcurrentHashMap<>();
-    public static NativeImage getCachedImage(Identifier id) { return IMAGE_CACHE.get(id); }
 
     public static Identifier getOrCreateBlendedTexture(ItemStack stack) {
         if (stack.isEmpty()) return null;
@@ -420,13 +418,6 @@ public class BlendedTextureManager {
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "blended/" + hash);
         var tm = mc.getTextureManager();
         try {
-            try {
-                NativeImage copyFor3D = new NativeImage(blended.getWidth(), blended.getHeight(), false);
-                copyFor3D.copyFrom(blended);
-                IMAGE_CACHE.put(outId, copyFor3D);
-            } catch (Exception e) {
-                LOGGER.debug("Failed to cache copy for 3D for {}: {}", outId, e.toString());
-            }
             DynamicTexture dyn = new DynamicTexture(() -> outId.toString(), blended);
             tm.register(outId, dyn);
             LOGGER.info("Generated PATCHWORK blended texture {} for key {} (head {} handle {} )", outId, key, headInstanceIds.size(), handleInstanceIds.size());
@@ -687,9 +678,5 @@ public class BlendedTextureManager {
         return img;
     }
 
-    public static void clearCache() {
-        CACHE.clear();
-        for (NativeImage img : IMAGE_CACHE.values()) try { img.close(); } catch (Exception ignored) {}
-        IMAGE_CACHE.clear();
-    }
+    public static void clearCache() { CACHE.clear(); }
 }

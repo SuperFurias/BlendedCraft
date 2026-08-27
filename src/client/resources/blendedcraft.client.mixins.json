@@ -7,8 +7,7 @@
 		"GuiGraphicsExtractorMixin",
 		"HumanoidArmorLayerMixin",
 		"HumanoidArmorLayerAccessor",
-		"ItemInHandRendererMixin",
-		"ItemEntityRendererMixin"
+		"ItemInHandRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
