@@ -33,6 +33,40 @@ public class BlendedTextureManager {
     private static final Map<Identifier, NativeImage> IMAGE_CACHE = new ConcurrentHashMap<>();
     public static NativeImage getCachedImage(Identifier id) { return IMAGE_CACHE.get(id); }
 
+    /**
+     * Vanilla items are drawn with a ~25% darker 1px border around their silhouette,
+     * which makes the shape read clearly. This post-process replicates that on runtime
+     * composed textures: every opaque pixel touching transparency is darkened by 25%.
+     */
+    public static void applyVanillaEdgeHue(NativeImage img) {
+        try {
+            int w = img.getWidth();
+            int h = img.getHeight();
+            boolean[][] opaque = new boolean[w][h];
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    opaque[x][y] = ((img.getPixel(x, y) >> 24) & 0xFF) > 16;
+                }
+            }
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    if (!opaque[x][y]) continue;
+                    boolean edge = (x == 0 || !opaque[x - 1][y]) || (x == w - 1 || !opaque[x + 1][y])
+                            || (y == 0 || !opaque[x][y - 1]) || (y == h - 1 || !opaque[x][y + 1]);
+                    if (!edge) continue;
+                    int col = img.getPixel(x, y);
+                    int r = (int) Math.round((col & 0xFF) * 0.75);
+                    int g = (int) Math.round(((col >> 8) & 0xFF) * 0.75);
+                    int b = (int) Math.round(((col >> 16) & 0xFF) * 0.75);
+                    img.setPixel(x, y, (col & 0xFF000000) | (b << 16) | (g << 8) | r);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.debug("applyVanillaEdgeHue failed: {}", e.toString());
+        }
+    }
+
+
     public static Identifier getOrCreateBlendedTexture(ItemStack stack) {
         if (stack.isEmpty()) return null;
         CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
@@ -416,6 +450,9 @@ public class BlendedTextureManager {
         for (NativeImage img : headUnique.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         for (NativeImage img : handleUnique.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+
+        // Vanilla-style 1px darker hue on the silhouette edge, so shapes look "defined" like vanilla items
+        applyVanillaEdgeHue(blended);
 
         String hash = Integer.toHexString(key.hashCode());
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "blended/" + hash);

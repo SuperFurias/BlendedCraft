@@ -235,6 +235,8 @@ public class BlendedArmorTextureManager {
 
         for (NativeImage img : uniqueMap.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+        // Vanilla-style 1px darker hue on the silhouette edge
+        BlendedTextureManager.applyVanillaEdgeHue(armorTex);
         String hash = Integer.toHexString(key.hashCode());
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "armor_blended/" + hash);
         var tm = Minecraft.getInstance().getTextureManager();
