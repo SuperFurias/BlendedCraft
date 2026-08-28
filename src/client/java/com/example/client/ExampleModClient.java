@@ -14,6 +14,7 @@ import com.example.util.FlexibleRecipeHelper;
 public class ExampleModClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
+		com.example.client.model.BlendedModelRegistration.register();
 		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
 			if (stack.isEmpty()) return;
 			if (!FlexibleRecipeHelper.isFlexibleResult(stack)) return;
