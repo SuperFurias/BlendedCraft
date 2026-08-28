@@ -66,16 +66,16 @@ public final class BlendedMesh {
         float uScale = 1f / w;
         float vScale = 1f / h;
 
-        // Front face (-Z): u = x/w, v = y/h (v=0 is top row = y=1 in model space)
+        // Front face (-Z, z=7.5): direct U (empirically verified correct in hand/dropped/third-person)
         mesh.addQuad(
                 new float[]{0f, 1f, FRONT_Z, 1f, 1f, FRONT_Z, 1f, 0f, FRONT_Z, 0f, 0f, FRONT_Z},
                 new float[]{0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f},
                 new float[]{0f, 0f, -1f});
 
-        // Back face (+Z): mirrored horizontally
+        // Back face (+Z, z=8.5): direct U (unchanged)
         mesh.addQuad(
                 new float[]{1f, 1f, BACK_Z, 0f, 1f, BACK_Z, 0f, 0f, BACK_Z, 1f, 0f, BACK_Z},
-                new float[]{0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f},
+                new float[]{1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f},
                 new float[]{0f, 0f, 1f});
 
         // Side strips along alpha boundaries (vanilla-style extrusion)

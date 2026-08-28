@@ -9,7 +9,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
@@ -26,7 +25,6 @@ import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.equipment.ArmorType;
-import net.minecraft.world.item.equipment.Equippable;
 import net.minecraft.world.level.block.Block;
 
 import org.slf4j.Logger;
@@ -314,7 +312,7 @@ public class BlendedLegacyUpgrader {
                             if (curAttrs != null) {
                                 for (var e : curAttrs.modifiers()) {
                                     var attr = e.attribute();
-                                    if (attr.is(Attributes.ARMOR) || attr.is(Attributes.ARMOR_TOUGHNESS) || attr.is(Attributes.KNOCKBACK_RESISTANCE)) continue;
+                                    if (attr.value() == Attributes.ARMOR.value() || attr.value() == Attributes.ARMOR_TOUGHNESS.value() || attr.value() == Attributes.KNOCKBACK_RESISTANCE.value()) continue;
                                     builder.add(attr, e.modifier(), e.slot());
                                 }
                             }
@@ -460,16 +458,6 @@ public class BlendedLegacyUpgrader {
                 float[] blendedAttr = BlendedStatsHelper.getBlendedToolStats(tierAttr, tTypeAttr, headStats);
                 float expectedDmg = blendedAttr[0] - 1.0f;
                 float expectedSpd = blendedAttr[1] - 4.0f;
-                java.util.List<ItemStack> handleStacksAttr = new java.util.ArrayList<>();
-                ListTag handleTagAttr = tag.getListOrEmpty("blended_handle");
-                for (int i = 0; i < handleTagAttr.size(); i++) {
-                    String idStr = handleTagAttr.getString(i).orElse("");
-                    if (idStr.isEmpty()) continue;
-                    Identifier hid = Identifier.parse(idStr);
-                    Item hit = BuiltInRegistries.ITEM.getValue(hid);
-                    if (hit != null && hit != Items.AIR) handleStacksAttr.add(new ItemStack(hit));
-                }
-                var handleStatsAttr = handleStacksAttr.isEmpty() ? headStats : BlendedStatsHelper.averageStatsForStacks(handleStacksAttr);
                 if (curAttrs != null) {
                     boolean hasDmg = false, hasSpd = false;
                     for (var e : curAttrs.modifiers()) {
@@ -509,7 +497,7 @@ public class BlendedLegacyUpgrader {
                     if (existing != null) {
                         for (var e : existing.modifiers()) {
                             var attr = e.attribute();
-                            if (attr.is(Attributes.ATTACK_DAMAGE) || attr.is(Attributes.ATTACK_SPEED) || attr.is(Attributes.ARMOR) || attr.is(Attributes.ARMOR_TOUGHNESS)) continue;
+                            if (attr.value() == Attributes.ATTACK_DAMAGE.value() || attr.value() == Attributes.ATTACK_SPEED.value() || attr.value() == Attributes.ARMOR.value() || attr.value() == Attributes.ARMOR_TOUGHNESS.value()) continue;
                             builder.add(attr, e.modifier(), e.slot());
                         }
                     }
@@ -517,7 +505,6 @@ public class BlendedLegacyUpgrader {
                     builder.add(Attributes.ATTACK_SPEED, new AttributeModifier(Identifier.withDefaultNamespace("base_attack_speed"), finalSpd2, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
                     var built = builder.build();
                     if (!built.modifiers().isEmpty() || existing == null) stack.set(DataComponents.ATTRIBUTE_MODIFIERS, built);
-                    int totalEnch = 0; for (ItemStack s : headStacks) totalEnch += BlendedStatsHelper.statsForItem(s.getItem()).enchantability();
                     java.util.List<ItemStack> handleForEnch = new java.util.ArrayList<>();
                     ListTag handleTagEnch = tag.getListOrEmpty("blended_handle");
                     for (int i = 0; i < handleTagEnch.size(); i++) { String idStr = handleTagEnch.getString(i).orElse(""); if (idStr.isEmpty()) continue; Identifier hid = Identifier.parse(idStr); Item hit = BuiltInRegistries.ITEM.getValue(hid); if (hit != null && hit != Items.AIR) handleForEnch.add(new ItemStack(hit)); }

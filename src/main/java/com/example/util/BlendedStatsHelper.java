@@ -16,7 +16,6 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.TagKey;
 import net.minecraft.util.Unit;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EquipmentSlotGroup;
@@ -563,7 +562,6 @@ public class BlendedStatsHelper {
         };
     }
 
-    @SuppressWarnings("deprecation")
     public static ItemStack applyBlendedStats(ItemStack result, CraftingInput input) {
         if (result.isEmpty()) return result;
         MaterialStats avg = averageStats(input);
@@ -712,7 +710,7 @@ public class BlendedStatsHelper {
                 if (existing != null) {
                     for (var entry : existing.modifiers()) {
                         Holder<net.minecraft.world.entity.ai.attributes.Attribute> attr = entry.attribute();
-                        if (attr.is(Attributes.ATTACK_DAMAGE) || attr.is(Attributes.ATTACK_SPEED) || attr.is(Attributes.ARMOR) || attr.is(Attributes.ARMOR_TOUGHNESS)) {
+                        if (attr.value() == Attributes.ATTACK_DAMAGE.value() || attr.value() == Attributes.ATTACK_SPEED.value() || attr.value() == Attributes.ARMOR.value() || attr.value() == Attributes.ARMOR_TOUGHNESS.value()) {
                             continue;
                         }
                         builder.add(attr, entry.modifier(), entry.slot());
@@ -723,29 +721,14 @@ public class BlendedStatsHelper {
                     Identifier speedId = Identifier.withDefaultNamespace("base_attack_speed");
                     String tPath = BuiltInRegistries.ITEM.getKey(result.getItem()).getPath();
                     String toolType = tPath.startsWith("blended_") ? tPath.substring(8) : tPath;
-                    float baseDmg = getToolBaseDamage(toolType);
-                    float baseSpd = getToolBaseSpeed(toolType);
                     java.util.List<ItemStack> headForDmg = new java.util.ArrayList<>();
                     for (ItemStack s : input.items()) if (!s.isEmpty() && !s.is(Items.STICK)) headForDmg.add(s);
                     var headStatsForDmg = headForDmg.isEmpty() ? avg : averageStatsForStacks(headForDmg);
                     ToolMaterial tierForDmg = selectTierMaterial(headForDmg, headStatsForDmg);
                     float[] blendedStatsDmg = getBlendedToolStats(tierForDmg, toolType, headStatsForDmg);
-                    float finalDmg = blendedStatsDmg[0] - 1.0f; // displayed includes +1 player base, modifier is displayed-1
-                    // Actually getBlendedToolStats returns displayed, we need modifier = displayed -1 (player base)
-                    // For pickaxe netherite displayed 6 -> modifier 5, for blended nether_star pickaxe displayed 8 -> modifier 7
-                    finalDmg = blendedStatsDmg[0] - 1.0f;
-                    float finalSpd = blendedStatsDmg[1] - 4.0f; // displayed 1.2 -> modifier -2.8, so modifier = displayed -4
-                    finalSpd = blendedStatsDmg[1] - 4.0f;
-                    // Preserve existing attack speed if present (for handle influence via ShapedRecipeMixin), otherwise use base
-                    if (existing != null) {
-                        for (var e : existing.modifiers()) {
-                            if (e.attribute().is(Attributes.ATTACK_SPEED)) {
-                                // Keep existing speed if it's not the default Wood pickaxe speed, otherwise use per-tool base
-                                // For fallback (no handle), just use base
-                                break;
-                            }
-                        }
-                    }
+                    // getBlendedToolStats returns displayed values; modifier = displayed - 1 (player base) / - 4 (speed offset)
+                    float finalDmg = blendedStatsDmg[0] - 1.0f;
+                    float finalSpd = blendedStatsDmg[1] - 4.0f;
                     builder.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(dmgId, finalDmg, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
                     builder.add(Attributes.ATTACK_SPEED, new AttributeModifier(speedId, finalSpd, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
                 }
@@ -788,7 +771,7 @@ public class BlendedStatsHelper {
                         if (curAttrsFix != null) {
                             for (var e : curAttrsFix.modifiers()) {
                                 var attr = e.attribute();
-                                if (attr.is(Attributes.ATTACK_DAMAGE) || attr.is(Attributes.ATTACK_SPEED)) continue;
+                                if (attr.value() == Attributes.ATTACK_DAMAGE.value() || attr.value() == Attributes.ATTACK_SPEED.value()) continue;
                                 builder2.add(attr, e.modifier(), e.slot());
                             }
                         }
@@ -1017,7 +1000,7 @@ public class BlendedStatsHelper {
                 } else {
                     // fallback to manual sword rules if template missing
                     HolderGetter<Block> getter = BuiltInRegistries.acquireBootstrapRegistrationLookup(BuiltInRegistries.BLOCK);
-                    HolderSet<Block> cobweb = HolderSet.direct(Blocks.COBWEB.builtInRegistryHolder());
+                    HolderSet<Block> cobweb = HolderSet.direct(BuiltInRegistries.BLOCK.wrapAsHolder(Blocks.COBWEB));
                     HolderSet<Block> instant = getter.getOrThrow(BlockTags.SWORD_INSTANTLY_MINES);
                     HolderSet<Block> efficient = getter.getOrThrow(BlockTags.SWORD_EFFICIENT);
                     java.util.List<Tool.Rule> rules = java.util.List.of(
@@ -1123,16 +1106,6 @@ public class BlendedStatsHelper {
         if (id.contains("stone") || id.contains("cobble")) return ToolMaterial.STONE;
         if (id.contains("plank") || id.contains("wood") || id.contains("log")) return ToolMaterial.WOOD;
         return null;
-    }
-
-    private static TagKey<Block> tagForToolMaterial(ToolMaterial mat) {
-        if (mat == ToolMaterial.NETHERITE) return BlockTags.INCORRECT_FOR_NETHERITE_TOOL;
-        if (mat == ToolMaterial.DIAMOND) return BlockTags.INCORRECT_FOR_DIAMOND_TOOL;
-        if (mat == ToolMaterial.GOLD) return BlockTags.INCORRECT_FOR_GOLD_TOOL;
-        if (mat == ToolMaterial.IRON) return BlockTags.INCORRECT_FOR_IRON_TOOL;
-        if (mat == ToolMaterial.COPPER) return BlockTags.INCORRECT_FOR_COPPER_TOOL;
-        if (mat == ToolMaterial.STONE) return BlockTags.INCORRECT_FOR_STONE_TOOL;
-        return BlockTags.INCORRECT_FOR_WOODEN_TOOL;
     }
 
     private static ItemStack getVanillaTemplate(String type, ToolMaterial tier) {

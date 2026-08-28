@@ -2,7 +2,6 @@ package com.example.client.model;
 
 import com.example.client.mixin.CuboidItemModelWrapperAccessor;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
-import net.minecraft.client.renderer.item.ItemModel;
 import net.minecraft.client.renderer.item.ModelRenderProperties;
 import net.minecraft.resources.Identifier;
 import org.joml.Matrix4fc;

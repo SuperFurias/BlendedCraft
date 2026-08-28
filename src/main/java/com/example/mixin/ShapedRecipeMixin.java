@@ -9,10 +9,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
@@ -527,7 +525,7 @@ public class ShapedRecipeMixin {
                     stack.set(DataComponents.TOOL, tmplTool);
                 } else {
                     HolderGetter<Block> getter = BuiltInRegistries.acquireBootstrapRegistrationLookup(BuiltInRegistries.BLOCK);
-                    HolderSet<Block> cobweb = HolderSet.direct(Blocks.COBWEB.builtInRegistryHolder());
+                    HolderSet<Block> cobweb = HolderSet.direct(BuiltInRegistries.BLOCK.wrapAsHolder(Blocks.COBWEB));
                     HolderSet<Block> instant = getter.getOrThrow(BlockTags.SWORD_INSTANTLY_MINES);
                     HolderSet<Block> efficient = getter.getOrThrow(BlockTags.SWORD_EFFICIENT);
                     java.util.List<Tool.Rule> rules = java.util.List.of(
