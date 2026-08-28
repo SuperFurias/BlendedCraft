@@ -1,6 +1,5 @@
 package com.example.client.mixin;
 
-import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.renderer.entity.ArmorModelSet;
 import net.minecraft.client.renderer.entity.layers.EquipmentLayerRenderer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -10,10 +9,10 @@ import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 @Mixin(HumanoidArmorLayer.class)
 public interface HumanoidArmorLayerAccessor {
     @Accessor("modelSet")
-    ArmorModelSet getModelSet();
+    ArmorModelSet<?> getModelSet();
 
     @Accessor("babyModelSet")
-    ArmorModelSet getBabyModelSet();
+    ArmorModelSet<?> getBabyModelSet();
 
     @Accessor("equipmentRenderer")
     EquipmentLayerRenderer getEquipmentRenderer();

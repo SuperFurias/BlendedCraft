@@ -5,12 +5,9 @@ import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.component.ItemAttributeModifiers;
 import org.lwjgl.glfw.GLFW;
 import com.example.util.FlexibleRecipeHelper;
 

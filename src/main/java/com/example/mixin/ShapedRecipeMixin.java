@@ -25,11 +25,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.util.BlendedStatsHelper;
 import com.example.util.FlexibleRecipeHelper;
 
 @Mixin(ShapedRecipe.class)
 public class ShapedRecipeMixin {
+    private static final Logger LOGGER = LoggerFactory.getLogger("blendedcraft/ShapedRecipeMixin");
 
     @Shadow @Final private ShapedRecipePattern pattern;
     @Shadow @Final private ItemStackTemplate result;
@@ -56,41 +60,62 @@ public class ShapedRecipeMixin {
     private boolean isVanillaExactMatch(CraftingInput input) {
         int pWidth = this.pattern.width();
         int pHeight = this.pattern.height();
+        int iWidth = input.width();
+        int iHeight = input.height();
+        if (pWidth > iWidth || pHeight > iHeight) return false;
         var ingredients = this.pattern.ingredients();
-        ItemStack firstX = null;
-        ItemStack firstStick = null;
-        boolean hasX = false;
-        boolean hasStick = false;
-        for (int y = 0; y < pHeight; y++) {
-            for (int x = 0; x < pWidth; x++) {
-                int idx = x + y * pWidth;
-                var opt = ingredients.get(idx);
-                if (opt.isEmpty()) continue;
-                Ingredient ing = opt.get();
-                boolean isStick = ing.test(new ItemStack(Items.STICK));
-                ItemStack stack = null;
-                if (x < input.width() && y < input.height()) {
-                    stack = input.getItem(x, y);
-                }
-                if (stack == null || stack.isEmpty()) continue;
-                if (isStick) {
-                    hasStick = true;
-                    if (!stack.is(Items.STICK)) return false;
-                    if (firstStick == null) firstStick = stack;
-                    else if (!ItemStack.isSameItemSameComponents(firstStick, stack)) return false;
-                } else {
-                    hasX = true;
-                    if (firstX == null) firstX = stack;
-                    else if (!ItemStack.isSameItemSameComponents(firstX, stack)) return false;
+        // Search all offsets and mirrored variants - vanilla exact means uniform head+handle and vanilla material
+        for (boolean mirrored : new boolean[]{false, true}) {
+            for (int oy = 0; oy <= iHeight - pHeight; oy++) {
+                for (int ox = 0; ox <= iWidth - pWidth; ox++) {
+                    ItemStack firstX = null;
+                    ItemStack firstStick = null;
+                    boolean hasX = false;
+                    boolean hasStick = false;
+                    boolean ok = true;
+                    // Check pattern cells
+                    for (int y = 0; y < pHeight && ok; y++) {
+                        for (int x = 0; x < pWidth && ok; x++) {
+                            int idx = mirrored ? (pWidth - 1 - x) + y * pWidth : x + y * pWidth;
+                            var opt = ingredients.get(idx);
+                            if (opt.isEmpty()) {
+                                if (!input.getItem(x + ox, y + oy).isEmpty()) ok = false;
+                                continue;
+                            }
+                            Ingredient ing = opt.get();
+                            boolean isStick = ing.test(new ItemStack(Items.STICK));
+                            ItemStack stack = input.getItem(x + ox, y + oy);
+                            if (stack.isEmpty()) { ok = false; break; }
+                            if (isStick) {
+                                hasStick = true;
+                                if (!stack.is(Items.STICK)) { ok = false; break; }
+                                if (firstStick == null) firstStick = stack;
+                                else if (!ItemStack.isSameItemSameComponents(firstStick, stack)) { ok = false; break; }
+                            } else {
+                                hasX = true;
+                                if (firstX == null) firstX = stack;
+                                else if (!ItemStack.isSameItemSameComponents(firstX, stack)) { ok = false; break; }
+                            }
+                        }
+                    }
+                    if (!ok) continue;
+                    // Ensure outside pattern empty
+                    for (int y = 0; y < iHeight && ok; y++) {
+                        for (int x = 0; x < iWidth && ok; x++) {
+                            boolean inside = x >= ox && x < ox + pWidth && y >= oy && y < oy + pHeight;
+                            if (inside) continue;
+                            if (!input.getItem(x, y).isEmpty()) ok = false;
+                        }
+                    }
+                    if (!ok || !hasX) continue;
+                    boolean isVanillaMat = isVanillaArmorToolMaterial(firstX.getItem());
+                    if (!isVanillaMat) continue;
+                    if (hasStick && firstStick != null && !firstStick.is(Items.STICK)) continue;
+                    return true;
                 }
             }
         }
-        if (!hasX) return false;
-        // Only exact vanilla materials, not blocks, count as vanilla (so netherite_block chestplate goes to blended)
-        boolean isVanillaMat = isVanillaArmorToolMaterial(firstX.getItem());
-        if (!isVanillaMat) return false;
-        if (hasStick && firstStick != null && !firstStick.is(Items.STICK)) return false;
-        return true;
+        return false;
     }
 
     private boolean isVanillaArmorToolMaterial(net.minecraft.world.item.Item item) {
@@ -117,41 +142,47 @@ public class ShapedRecipeMixin {
         int pHeight = this.pattern.height();
         int iWidth = input.width();
         int iHeight = input.height();
-        if (pWidth != iWidth || pHeight != iHeight) return false;
+        if (pWidth > iWidth || pHeight > iHeight) return false;
         var ingredients = this.pattern.ingredients();
-        ItemStack firstX = null;
-        ItemStack firstStick = null;
-        for (int y = 0; y < pHeight; y++) {
-            for (int x = 0; x < pWidth; x++) {
-                int idx;
-                if (mirrored) {
-                    idx = (pWidth - 1 - x) + y * pWidth;
-                } else {
-                    idx = x + y * pWidth;
-                }
-                Optional<Ingredient> opt = ingredients.get(idx);
-                ItemStack stack = input.getItem(x, y);
-                boolean expectPresent = opt.isPresent();
-                boolean hasStack = !stack.isEmpty();
-                if (expectPresent != hasStack) {
-                    return false;
-                }
-                if (expectPresent) {
-                    Ingredient ing = opt.get();
-                    boolean isStick = ing.test(new ItemStack(Items.STICK));
-                    if (isStick) {
-                        if (firstStick == null) firstStick = stack;
-                        else if (!ItemStack.isSameItemSameComponents(firstStick, stack)) return false;
-                    } else {
-                        // Head can be mixed (blended), no same check
+        for (int oy = 0; oy <= iHeight - pHeight; oy++) {
+            for (int ox = 0; ox <= iWidth - pWidth; ox++) {
+                boolean ok = true;
+                ItemStack firstStick = null;
+                // Check pattern area
+                for (int y = 0; y < pHeight && ok; y++) {
+                    for (int x = 0; x < pWidth && ok; x++) {
+                        int idx = mirrored ? (pWidth - 1 - x) + y * pWidth : x + y * pWidth;
+                        Optional<Ingredient> opt = ingredients.get(idx);
+                        ItemStack stack = input.getItem(x + ox, y + oy);
+                        boolean expectPresent = opt.isPresent();
+                        boolean hasStack = !stack.isEmpty();
+                        if (expectPresent != hasStack) { ok = false; break; }
+                        if (expectPresent) {
+                            Ingredient ing = opt.get();
+                            boolean isStick = ing.test(new ItemStack(Items.STICK));
+                            if (isStick) {
+                                if (firstStick == null) firstStick = stack;
+                                else if (!ItemStack.isSameItemSameComponents(firstStick, stack)) { ok = false; break; }
+                            }
+                        }
                     }
                 }
+                if (!ok) continue;
+                // Ensure outside pattern empty
+                for (int y = 0; y < iHeight && ok; y++) {
+                    for (int x = 0; x < iWidth && ok; x++) {
+                        boolean inside = x >= ox && x < ox + pWidth && y >= oy && y < oy + pHeight;
+                        if (inside) continue;
+                        if (!input.getItem(x, y).isEmpty()) ok = false;
+                    }
+                }
+                if (ok) return true;
             }
         }
-        // Handle must be uniform (all sticks same), head can be mixed
-        return true;
+        return false;
     }
 
+    @SuppressWarnings("deprecation")
     @Inject(method = "assemble(Lnet/minecraft/world/item/crafting/CraftingInput;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"), cancellable = true)
     private void onAssemble(CraftingInput input, CallbackInfoReturnable<ItemStack> cir) {
         ItemStack resultStack = cir.getReturnValue();
@@ -230,7 +261,6 @@ public class ShapedRecipeMixin {
                 boolean singleMat = isSingleMaterial(input);
                 // For tools, if head is single material, don't show Blended even if handle different
                 boolean headSingle = isSingleMaterialList(headStacks.isEmpty() ? allStacks(input) : headStacks);
-                boolean useBlended = !singleMat && !headSingle;
                 // Actually per spec: if head is single, no Blended even if handle different
                 if (headSingle && !effective.isEmpty()) {
                     // check if headStacks all same
@@ -249,7 +279,7 @@ public class ShapedRecipeMixin {
                     }
                     modified.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(display).withStyle(s -> s.withItalic(false)));
                 }
-            } catch (Exception ex2) { ex2.printStackTrace(); }
+            } catch (Exception ex2) { LOGGER.warn("Failed to set custom name: {}", ex2.toString(), ex2); }
             // Fix stats: handle influences swing speed/durability, head influences mining/attack/durability
             try {
                 if (!headStacks.isEmpty() && modified.get(DataComponents.TOOL) != null || modified.get(DataComponents.WEAPON) != null || com.example.util.FlexibleRecipeHelper.isFlexibleResult(modified)) {
@@ -274,7 +304,8 @@ public class ShapedRecipeMixin {
                         if (existing != null) {
                             for (var e : existing.modifiers()) {
                                 var attr = e.attribute();
-                                if (attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) || attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED) || attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR) || attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)) continue;
+                                boolean isDeprecated = attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) || attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED) || attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR) || attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+                                if (isDeprecated) continue;
                                 builder.add(attr, e.modifier(), e.slot());
                             }
                         }
@@ -290,39 +321,74 @@ public class ShapedRecipeMixin {
                         // Also update dyed color to be average of head and handle? Keep existing
                     }
                 }
-            } catch (Exception ex3) { ex3.printStackTrace(); }
+            } catch (Exception ex3) { LOGGER.warn("Failed to apply head/handle stats: {}", ex3.toString(), ex3); }
         } catch (Exception ex) {
-            ex.printStackTrace();
+            LOGGER.error("Failed to apply blended stats in assemble", ex);
         }
         cir.setReturnValue(modified);
     }
 
+    @SuppressWarnings("unused")
     private boolean collectHeadHandle(CraftingInput input, java.util.List<Optional<Ingredient>> ingredients, int pW, int pH, boolean mirrored, java.util.List<ItemStack> headOut, java.util.List<ItemStack> handleOut) {
         return collectHeadHandle(input, ingredients, pW, pH, mirrored, headOut, handleOut, null, null);
     }
 
     private boolean collectHeadHandle(CraftingInput input, java.util.List<Optional<Ingredient>> ingredients, int pW, int pH, boolean mirrored, java.util.List<ItemStack> headOut, java.util.List<ItemStack> handleOut, java.util.List<Integer> headPosOut, java.util.List<Integer> handlePosOut) {
-        if (input.width() != pW || input.height() != pH) return false;
-        for (int y = 0; y < pH; y++) {
-            for (int x = 0; x < pW; x++) {
-                int idx = mirrored ? (pW - 1 - x) + y * pW : x + y * pW;
-                var opt = ingredients.get(idx);
-                if (opt.isEmpty()) continue;
-                Ingredient ing = opt.get();
-                boolean isStick = ing.test(new ItemStack(Items.STICK));
-                ItemStack stack = input.getItem(x, y);
-                if (stack.isEmpty()) return false;
-                int pos = x + y * 16;
-                if (isStick) {
-                    handleOut.add(stack);
-                    if (handlePosOut != null) handlePosOut.add(pos);
-                } else {
-                    headOut.add(stack);
-                    if (headPosOut != null) headPosOut.add(pos);
+        int iW = input.width();
+        int iH = input.height();
+        if (pW > iW || pH > iH) return false;
+        for (int oy = 0; oy <= iH - pH; oy++) {
+            for (int ox = 0; ox <= iW - pW; ox++) {
+                // Check if this offset matches (including outside empty)
+                boolean fits = true;
+                // quick pattern check
+                for (int y = 0; y < pH && fits; y++) {
+                    for (int x = 0; x < pW && fits; x++) {
+                        int idx = mirrored ? (pW - 1 - x) + y * pW : x + y * pW;
+                        var opt = ingredients.get(idx);
+                        ItemStack s = input.getItem(x + ox, y + oy);
+                        boolean expect = opt.isPresent();
+                        boolean has = !s.isEmpty();
+                        if (expect != has) fits = false;
+                    }
                 }
+                if (!fits) continue;
+                // check outside empty
+                for (int y = 0; y < iH && fits; y++) {
+                    for (int x = 0; x < iW && fits; x++) {
+                        boolean inside = x >= ox && x < ox + pW && y >= oy && y < oy + pH;
+                        if (inside) continue;
+                        if (!input.getItem(x, y).isEmpty()) fits = false;
+                    }
+                }
+                if (!fits) continue;
+                // This offset matches - collect
+                headOut.clear(); handleOut.clear();
+                if (headPosOut != null) headPosOut.clear();
+                if (handlePosOut != null) handlePosOut.clear();
+                for (int y = 0; y < pH; y++) {
+                    for (int x = 0; x < pW; x++) {
+                        int idx = mirrored ? (pW - 1 - x) + y * pW : x + y * pW;
+                        var opt = ingredients.get(idx);
+                        if (opt.isEmpty()) continue;
+                        Ingredient ing = opt.get();
+                        boolean isStick = ing.test(new ItemStack(Items.STICK));
+                        ItemStack stack = input.getItem(x + ox, y + oy);
+                        if (stack.isEmpty()) return false;
+                        int pos = x + y * 16; // pattern-local for Voronoi seed stability
+                        if (isStick) {
+                            handleOut.add(stack);
+                            if (handlePosOut != null) handlePosOut.add(pos);
+                        } else {
+                            headOut.add(stack);
+                            if (headPosOut != null) headPosOut.add(pos);
+                        }
+                    }
+                }
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     private java.util.List<ItemStack> allStacks(CraftingInput input) {
@@ -407,79 +473,20 @@ public class ShapedRecipeMixin {
     }
 
     private float getHardnessForMixin(net.minecraft.world.item.Item item) {
-        if (item instanceof net.minecraft.world.item.BlockItem bi) {
-            try {
-                float d = bi.getBlock().defaultDestroyTime();
-                if (d < 0) return 50f;
-                if (d == 0) return 0.2f;
-                return d;
-            } catch (Exception e) { return 1f; }
-        }
-        if (item == Items.DIAMOND) return net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK.defaultDestroyTime();
-        if (item == Items.IRON_INGOT) return net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultDestroyTime();
-        if (item == Items.GOLD_INGOT) return net.minecraft.world.level.block.Blocks.GOLD_BLOCK.defaultDestroyTime();
-        if (item == Items.COPPER_INGOT) return 3f;
-        if (item == Items.NETHERITE_INGOT) return net.minecraft.world.level.block.Blocks.NETHERITE_BLOCK.defaultDestroyTime();
-        if (item == Items.EMERALD) return net.minecraft.world.level.block.Blocks.EMERALD_BLOCK.defaultDestroyTime();
-        if (item == Items.BEDROCK) return 50f;
-        if (item == Items.OBSIDIAN) return 50f;
-        String id = BuiltInRegistries.ITEM.getKey(item).getPath();
-        if (id.contains("bedrock")) return 50f;
-        if (id.contains("obsidian")) return 50f;
-        if (id.contains("netherite")) return 50f;
-        if (id.contains("diamond")) return 5f;
-        if (id.contains("iron")) return 5f;
-        if (id.contains("gold")) return 3f;
-        if (id.contains("copper")) return 3f;
-        return 1f;
+        return com.example.util.BlendedStatsHelper.getHardnessForItem(item);
     }
 
     private int getDurabilityForMixin(net.minecraft.world.item.Item item) {
-        if (item == Items.DIAMOND) return 1561;
-        if (item == Items.NETHERITE_INGOT) return 2031;
-        if (item == Items.IRON_INGOT) return 250;
-        if (item == Items.GOLD_INGOT) return 32;
-        if (item == Items.COPPER_INGOT) return 190;
-        if (item == Items.EMERALD) return 500;
-        if (item == Items.BEDROCK) return 3000;
-        if (item == Items.OBSIDIAN) return 1200;
-        float h = getHardnessForMixin(item);
-        if (h >= 50f) return 2400;
-        if (h >= 3f) return (int)(250 + (h - 3f)*500);
-        if (h >= 1.5f) return (int)(100 + h*40);
-        return (int)(30 + h*40);
+        return com.example.util.BlendedStatsHelper.statsForItem(item).durability();
     }
 
     private com.example.util.BlendedStatsHelper.MaterialStats averageStatsForList(java.util.List<ItemStack> list) {
-        if (list == null || list.isEmpty()) return new com.example.util.BlendedStatsHelper.MaterialStats(100, 2f, 1f, 10, 1, 0f, 0f);
-        int totalDur = 0; float totalSpeed = 0; float totalDamage = 0; int totalEnchant = 0; int cnt = 0;
-        for (ItemStack s : list) {
-            if (s.isEmpty()) continue;
-            var st = getStatsForMixin(s.getItem());
-            totalDur += st.durability();
-            totalSpeed += st.speed();
-            totalDamage += st.attackDamage();
-            totalEnchant += st.enchantability();
-            cnt++;
-        }
-        if (cnt == 0) return new com.example.util.BlendedStatsHelper.MaterialStats(100, 2f, 1f, 10, 1, 0f, 0f);
-        return new com.example.util.BlendedStatsHelper.MaterialStats(totalDur / cnt, totalSpeed / cnt, totalDamage / cnt, totalEnchant / cnt, 0, 0f, 0f);
+        return com.example.util.BlendedStatsHelper.averageStatsForStacks(list);
     }
 
+    @SuppressWarnings("unused")
     private com.example.util.BlendedStatsHelper.MaterialStats getStatsForMixin(net.minecraft.world.item.Item item) {
-        // Duplicate of BlendedStatsHelper.statsForItem but accessible
-        float hard = getHardnessForMixin(item);
-        if (item == Items.DIAMOND) return new com.example.util.BlendedStatsHelper.MaterialStats(1561, 8f, 3f, 10, 3, 2f, 0f);
-        if (item == Items.NETHERITE_INGOT) return new com.example.util.BlendedStatsHelper.MaterialStats(2031, 9f, 4f, 15, 3, 3f, 0.1f);
-        if (item == Items.IRON_INGOT) return new com.example.util.BlendedStatsHelper.MaterialStats(250, 6f, 2f, 14, 2, 0f, 0f);
-        if (item == Items.GOLD_INGOT) return new com.example.util.BlendedStatsHelper.MaterialStats(32, 12f, 0f, 22, 1, 0f, 0f);
-        if (item == Items.COPPER_INGOT) return new com.example.util.BlendedStatsHelper.MaterialStats(190, 5f, 1.5f, 10, 2, 0f, 0f);
-        if (item == Items.EMERALD) return new com.example.util.BlendedStatsHelper.MaterialStats(500, 6.5f, 2.5f, 12, 2, 0f, 0f);
-        if (item == Items.LEATHER) return new com.example.util.BlendedStatsHelper.MaterialStats(80, 1f, 0f, 15, 1, 0f, 0f);
-        if (hard >= 50f) return new com.example.util.BlendedStatsHelper.MaterialStats((int)(2300 + hard*2), 9.5f, 4.5f, 12, 4, 3.5f, 0.15f);
-        if (hard >= 3f) return new com.example.util.BlendedStatsHelper.MaterialStats((int)(250 + (hard - 3f)*500), 6f + (hard - 3f)*0.8f, 2f + (hard - 3f)*0.4f, 12, (int)Math.min(4, 2 + (hard - 3f)), hard >= 4f ? 2f : 0f, 0f);
-        if (hard >= 1.5f) return new com.example.util.BlendedStatsHelper.MaterialStats((int)(100 + hard*40), 3f + hard*0.5f, 1f, 8, 1, 0f, 0f);
-        return new com.example.util.BlendedStatsHelper.MaterialStats((int)(30 + hard*40), 1f + hard, 0.5f, 5, 0, 0f, 0f);
+        return com.example.util.BlendedStatsHelper.statsForItem(item);
     }
 
     private boolean isSingleMaterialList(java.util.List<ItemStack> list) {

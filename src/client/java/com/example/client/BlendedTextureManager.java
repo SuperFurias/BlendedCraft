@@ -59,7 +59,7 @@ public class BlendedTextureManager {
             if (t instanceof IntTag it) headPos.add(it.value());
             else {
                 // Fallback try getInt via optional
-                try { var opt = headPosTag.getInt(i); if (opt.isPresent()) headPos.add(opt.get()); } catch (Exception ignored) {}
+                try { var opt = headPosTag.getInt(i); if (opt.isPresent()) headPos.add(opt.get()); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             }
         }
         ListTag handlePosTag = tag.getListOrEmpty("blended_handle_pos");
@@ -68,12 +68,12 @@ public class BlendedTextureManager {
             Tag t = handlePosTag.get(i);
             if (t instanceof IntTag it) handlePos.add(it.value());
             else {
-                try { var opt = handlePosTag.getInt(i); if (opt.isPresent()) handlePos.add(opt.get()); } catch (Exception ignored) {}
+                try { var opt = handlePosTag.getInt(i); if (opt.isPresent()) handlePos.add(opt.get()); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             }
         }
         int pW = 3, pH = 3;
-        try { var ow = tag.getInt("blended_pattern_width"); if (ow.isPresent()) pW = ow.get(); } catch (Exception ignored) {}
-        try { var oh = tag.getInt("blended_pattern_height"); if (oh.isPresent()) pH = oh.get(); } catch (Exception ignored) {}
+        try { var ow = tag.getInt("blended_pattern_width"); if (ow.isPresent()) pW = ow.get(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+        try { var oh = tag.getInt("blended_pattern_height"); if (oh.isPresent()) pH = oh.get(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         String posKey = tag.getString("blended_pos_key").orElse("");
 
         String resultIdStr = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
@@ -120,7 +120,7 @@ public class BlendedTextureManager {
         List<String> handleIds = handleIdsRaw;
 
         if (headIds.isEmpty() && handleIds.isEmpty()) {
-            if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) {}
+            if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             return null;
         }
 
@@ -160,7 +160,7 @@ public class BlendedTextureManager {
 
         if (headUnique.isEmpty() && handleUnique.isEmpty()) {
             LOGGER.warn("No textures found for key {} (fallback failed)", key);
-            if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) {}
+            if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             return null;
         }
 
@@ -412,9 +412,9 @@ public class BlendedTextureManager {
             }
         }
 
-        for (NativeImage img : headUnique.values()) try { img.close(); } catch (Exception ignored) {}
-        for (NativeImage img : handleUnique.values()) try { img.close(); } catch (Exception ignored) {}
-        if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) {}
+        for (NativeImage img : headUnique.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+        for (NativeImage img : handleUnique.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+        if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
 
         String hash = Integer.toHexString(key.hashCode());
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "blended/" + hash);
@@ -431,7 +431,7 @@ public class BlendedTextureManager {
             return outId;
         } catch (Exception e) {
             LOGGER.error("Failed to register blended texture {}: {}", outId, e.toString());
-            try { blended.close(); } catch (Exception ignored) {}
+            try { blended.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             return null;
         }
     }
@@ -537,7 +537,7 @@ public class BlendedTextureManager {
                     return altImg;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         return null;
     }
 
@@ -628,7 +628,7 @@ public class BlendedTextureManager {
                             img.close(); return scaled;
                         }
                         return img;
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
                 }
             }
             Identifier modTex = Identifier.fromNamespaceAndPath("blendedcraft", "textures/item/" + resultPath + ".png");
@@ -645,7 +645,7 @@ public class BlendedTextureManager {
                         img.close(); return scaled;
                     }
                     return img;
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             }
             Identifier blockTex = Identifier.fromNamespaceAndPath("minecraft", "textures/block/" + suffix + ".png");
             Optional<Resource> blockRes = rm.getResource(blockTex);
@@ -661,7 +661,7 @@ public class BlendedTextureManager {
                         img.close(); return scaled;
                     }
                     return img;
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             }
         } catch (Exception e) { LOGGER.warn("Failed to load base mask for {}: {}", stack, e.toString()); }
         return null;
@@ -687,7 +687,7 @@ public class BlendedTextureManager {
 
     public static void clearCache() {
         CACHE.clear();
-        for (NativeImage img : IMAGE_CACHE.values()) try { img.close(); } catch (Exception ignored) {}
+        for (NativeImage img : IMAGE_CACHE.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         IMAGE_CACHE.clear();
     }
 }

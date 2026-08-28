@@ -3,7 +3,6 @@ package com.example.item;
 import java.util.EnumMap;
 import java.util.Map;
 
-import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvents;

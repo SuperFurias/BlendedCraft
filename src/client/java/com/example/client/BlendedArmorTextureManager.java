@@ -17,7 +17,6 @@ import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -50,12 +49,12 @@ public class BlendedArmorTextureManager {
             Tag t = posTag.get(i);
             if (t instanceof IntTag it) posList.add(it.value());
             else {
-                try { var opt = posTag.getInt(i); if (opt.isPresent()) posList.add(opt.get()); } catch (Exception ignored) {}
+                try { var opt = posTag.getInt(i); if (opt.isPresent()) posList.add(opt.get()); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             }
         }
         int pW = 3, pH = 3;
-        try { var ow = tag.getInt("blended_pattern_width"); if (ow.isPresent()) pW = ow.get(); } catch (Exception ignored) {}
-        try { var oh = tag.getInt("blended_pattern_height"); if (oh.isPresent()) pH = oh.get(); } catch (Exception ignored) {}
+        try { var ow = tag.getInt("blended_pattern_width"); if (ow.isPresent()) pW = ow.get(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+        try { var oh = tag.getInt("blended_pattern_height"); if (oh.isPresent()) pH = oh.get(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         String posKey = tag.getString("blended_pos_key").orElse("");
 
         String slotKey = slot == null ? "unknown" : slot.getName();
@@ -109,8 +108,8 @@ public class BlendedArmorTextureManager {
             smallMap.put(idStr, isSmallImage(img));
         }
         if (uniqueMap.isEmpty()) {
-            try { armorTex.close(); } catch (Exception ignored) {}
-            try { baseMask.close(); } catch (Exception ignored) {}
+            try { armorTex.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+            try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             return null;
         }
 
@@ -233,8 +232,8 @@ public class BlendedArmorTextureManager {
             }
         }
 
-        for (NativeImage img : uniqueMap.values()) try { img.close(); } catch (Exception ignored) {}
-        try { baseMask.close(); } catch (Exception ignored) {}
+        for (NativeImage img : uniqueMap.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
+        try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         String hash = Integer.toHexString(key.hashCode());
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "armor_blended/" + hash);
         var tm = Minecraft.getInstance().getTextureManager();
@@ -245,7 +244,7 @@ public class BlendedArmorTextureManager {
             return outId;
         } catch (Exception e) {
             LOGGER.error("Failed to register armor texture {}: {}", outId, e.toString());
-            try { armorTex.close(); } catch (Exception ignored) {}
+            try { armorTex.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             return null;
         }
     }
@@ -312,7 +311,7 @@ public class BlendedArmorTextureManager {
                     return altImg;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         return null;
     }
 
@@ -392,7 +391,7 @@ public class BlendedArmorTextureManager {
             Identifier id = Identifier.fromNamespaceAndPath("minecraft", p);
             Optional<Resource> res = rm.getResource(id);
             if (res.isPresent()) {
-                try (InputStream in = res.get().open()) { NativeImage img = NativeImage.read(in); return img; } catch (Exception ignored) {}
+                try (InputStream in = res.get().open()) { NativeImage img = NativeImage.read(in); return img; } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
             }
         }
         return null;

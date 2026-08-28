@@ -8,7 +8,9 @@
 		"HumanoidArmorLayerMixin",
 		"HumanoidArmorLayerAccessor",
 		"ItemInHandRendererMixin",
-		"ItemEntityRendererMixin"
+		"ItemInHandLayerMixin",
+		"ItemEntityRendererMixin",
+		"ItemEntityRenderStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

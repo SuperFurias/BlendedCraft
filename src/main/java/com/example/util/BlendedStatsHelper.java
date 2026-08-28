@@ -2,6 +2,9 @@ package com.example.util;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,7 +23,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -32,11 +34,12 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
 public class BlendedStatsHelper {
+    private static final Logger LOGGER = LoggerFactory.getLogger("blendedcraft/BlendedStatsHelper");
 
     public record MaterialStats(int durability, float speed, float attackDamage, int enchantability, int defense, float toughness, float knockbackResistance) {}
 
-    // Hardness-based: get destroyTime for block, or tier for ingots
-    private static float getHardnessForItem(Item item) {
+    // Hardness-based: get destroyTime for block, or tier for ingots - exposed for mixin reuse
+    public static float getHardnessForItem(Item item) {
         // Try BlockItem
         if (item instanceof BlockItem blockItem) {
             Block block = blockItem.getBlock();
@@ -151,7 +154,7 @@ public class BlendedStatsHelper {
         return (r << 16) | (g << 8) | b;
     }
 
-    private static MaterialStats statsForItem(Item item) {
+    public static MaterialStats statsForItem(Item item) {
         float hardness = getHardnessForItem(item);
         // Map hardness to stats: bedrock 50 -> max, diamond 5 -> high, sand 0.5 -> low
         // Use formula: durability = 50 + hardness*40 (sand 70, stone 110, iron/diamond 250/250, obsidian/bedrock 2050)
@@ -228,6 +231,7 @@ public class BlendedStatsHelper {
         return new MaterialStats(baseDur, baseSpeed, baseDamage, baseEnchant, baseDefense, baseTough, baseKB);
     }
 
+    @SuppressWarnings("unused")
     private static int getArmorDefenseForType(Item item, ArmorType type) {
         var mat = getArmorMaterialForItem(item);
         if (mat != null) {
@@ -236,7 +240,7 @@ public class BlendedStatsHelper {
         return statsForItem(item).defense();
     }
 
-    private static net.minecraft.world.item.equipment.ArmorMaterial getArmorMaterialForItem(Item item) {
+    public static net.minecraft.world.item.equipment.ArmorMaterial getArmorMaterialForItem(Item item) {
         if (item == Items.LEATHER) return ArmorMaterials.LEATHER;
         if (item == Items.COPPER_INGOT) return ArmorMaterials.COPPER;
         if (item == Items.IRON_INGOT) return ArmorMaterials.IRON;
@@ -284,6 +288,22 @@ public class BlendedStatsHelper {
         );
     }
 
+    public static MaterialStats averageStatsForStacks(java.util.List<ItemStack> list) {
+        if (list == null || list.isEmpty()) return new MaterialStats(100, 2f, 1f, 10, 1, 0f, 0f);
+        int totalDur = 0; float totalSpeed = 0; float totalDamage = 0; int totalEnchant = 0; int cnt = 0;
+        for (ItemStack s : list) {
+            if (s.isEmpty()) continue;
+            var st = statsForItem(s.getItem());
+            totalDur += st.durability();
+            totalSpeed += st.speed();
+            totalDamage += st.attackDamage();
+            totalEnchant += st.enchantability();
+            cnt++;
+        }
+        if (cnt == 0) return new MaterialStats(100, 2f, 1f, 10, 1, 0f, 0f);
+        return new MaterialStats(totalDur / cnt, totalSpeed / cnt, totalDamage / cnt, totalEnchant / cnt, 0, 0f, 0f);
+    }
+
     private static ArmorType getArmorTypeForStack(ItemStack result) {
         Equippable eq = result.get(DataComponents.EQUIPPABLE);
         if (eq == null) return null;
@@ -298,6 +318,7 @@ public class BlendedStatsHelper {
         };
     }
 
+    @SuppressWarnings("deprecation")
     public static ItemStack applyBlendedStats(ItemStack result, CraftingInput input) {
         if (result.isEmpty()) return result;
         MaterialStats avg = averageStats(input);
@@ -306,7 +327,6 @@ public class BlendedStatsHelper {
             boolean isArmor = armorType != null && result.get(DataComponents.EQUIPPABLE) != null;
             boolean isTool = result.get(DataComponents.TOOL) != null || result.get(DataComponents.WEAPON) != null;
 
-            int blendedColor = getBlendedColor(input);
             boolean hasBedrock = false;
             for (ItemStack s : input.items()) {
                 if (s.isEmpty()) continue;
@@ -391,7 +411,7 @@ public class BlendedStatsHelper {
                         tag.putString("blended_key", keySb.toString());
                         result.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        LOGGER.warn("Failed to write blended custom data (armor)", ex);
                     }
                     String dominant = getDominantMaterialName(input);
                     String baseType = getBaseTypeName(result);
@@ -479,12 +499,12 @@ public class BlendedStatsHelper {
                 tag2.putString("blended_key", keySb2.toString());
                 result.set(DataComponents.CUSTOM_DATA, CustomData.of(tag2));
             } catch (Exception ex) {
-                ex.printStackTrace();
+                LOGGER.warn("Failed to write blended custom data", ex);
             }
 
         } catch (Exception e) {
             result.set(DataComponents.CUSTOM_NAME, Component.literal("Blended " + getBaseTypeName(result)).withStyle(s -> s.withItalic(false)));
-            e.printStackTrace();
+            LOGGER.error("Failed to apply blended stats", e);
         }
         return result;
     }

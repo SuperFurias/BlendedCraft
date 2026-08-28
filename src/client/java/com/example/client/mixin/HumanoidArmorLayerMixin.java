@@ -6,10 +6,10 @@ import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.Identifier;
-import net.minecraft.client.Minecraft;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -18,11 +18,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.example.client.BlendedArmorTextureManager;
 import com.example.util.FlexibleRecipeHelper;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 
 @Mixin(HumanoidArmorLayer.class)
 public abstract class HumanoidArmorLayerMixin<S extends HumanoidRenderState, M extends HumanoidModel<S>, A extends HumanoidModel<S>> {
+    private static final Logger LOGGER = LoggerFactory.getLogger("blendedcraft/HumanoidArmorLayerMixin");
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     @Inject(method = "renderArmorPiece(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/EquipmentSlot;ILnet/minecraft/client/renderer/entity/state/HumanoidRenderState;)V", at = @At("HEAD"), cancellable = true)
     private void onRenderArmorPiece(PoseStack poseStack, SubmitNodeCollector collector, ItemStack stack, EquipmentSlot slot, int light, S state, CallbackInfo ci) {
         if (stack.isEmpty()) return;
@@ -61,7 +62,6 @@ public abstract class HumanoidArmorLayerMixin<S extends HumanoidRenderState, M e
             net.minecraft.client.renderer.entity.ArmorModelSet<A> modelSet = (net.minecraft.client.renderer.entity.ArmorModelSet<A>) accessor.getModelSet();
             net.minecraft.client.renderer.entity.ArmorModelSet<A> babyModelSet = (net.minecraft.client.renderer.entity.ArmorModelSet<A>) accessor.getBabyModelSet();
             boolean isBaby = ((HumanoidRenderState) state).isBaby;
-            boolean usesInner = slot == EquipmentSlot.LEGS;
             A model = isBaby ? babyModelSet.get(slot) : modelSet.get(slot);
             int color = -1;
             var renderType = net.minecraft.client.renderer.rendertype.RenderTypes.armorCutoutNoCull(armorTex);
@@ -72,7 +72,7 @@ public abstract class HumanoidArmorLayerMixin<S extends HumanoidRenderState, M e
                 collector.order(order + 1).submitModel((net.minecraft.client.model.Model) model, (HumanoidRenderState) state, poseStack, glintType, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, color, null, 0, null);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to render blended armor", e);
         }
     }
 }
