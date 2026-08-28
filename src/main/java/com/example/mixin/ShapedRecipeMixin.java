@@ -2,21 +2,30 @@ package com.example.mixin;
 
 import java.util.Optional;
 
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapedRecipePattern;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -292,12 +301,8 @@ public class ShapedRecipeMixin {
                     boolean isArmor = modified.get(DataComponents.EQUIPPABLE) != null;
                     if (!isArmor) {
                         modified.set(DataComponents.MAX_DAMAGE, blendedDur);
-                        // Mining speed from head
-                        var tool = modified.get(DataComponents.TOOL);
-                        if (tool != null) {
-                            var newTool = new net.minecraft.world.item.component.Tool(tool.rules(), headStats.speed(), tool.damagePerBlock(), tool.canDestroyBlocksInCreative());
-                            modified.set(DataComponents.TOOL, newTool);
-                        }
+                        // Mining speed from head - FIX: correct Tool rules (default 1.0, correct mineable tag, correct tier)
+                        fixToolForHead(modified, headStats, headStacks, handleStacks);
                         // Attack damage from head, attack speed from handle
                         var existing = modified.get(DataComponents.ATTRIBUTE_MODIFIERS);
                         var builder = net.minecraft.world.item.component.ItemAttributeModifiers.builder();
@@ -309,12 +314,15 @@ public class ShapedRecipeMixin {
                                 builder.add(attr, e.modifier(), e.slot());
                             }
                         }
-                        float attackSpeed = handleStats.speed() > 0 ? (handleStats.speed() * 0.3f - 2.8f) : -2.8f; // map handle speed to attack speed, handle influences swing
-                        // Clamp attack speed: handle obsidian (1.5) vs oak (2) etc.
-                        // Use handle's attackSpeed directly? For now, use handle's speed as swing influence
-                        // For display, we set attack damage from head, attack speed from handle
-                        builder.add(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, new net.minecraft.world.entity.ai.attributes.AttributeModifier(Identifier.withDefaultNamespace("base_attack_damage"), headStats.attackDamage(), net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE), net.minecraft.world.entity.EquipmentSlotGroup.MAINHAND);
-                        builder.add(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED, new net.minecraft.world.entity.ai.attributes.AttributeModifier(Identifier.withDefaultNamespace("base_attack_speed"), attackSpeed, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE), net.minecraft.world.entity.EquipmentSlotGroup.MAINHAND);
+                        String tPath2 = BuiltInRegistries.ITEM.getKey(modified.getItem()).getPath();
+                        String toolType2 = tPath2.startsWith("blended_") ? tPath2.substring(8) : tPath2;
+                        ToolMaterial tier2 = BlendedStatsHelper.getToolMaterialForItem(headStacks.isEmpty() ? modified.getItem() : headStacks.get(0).getItem());
+                        if (tier2 == null) tier2 = selectTierMaterialForMixin(headStacks, headStats);
+                        float[] blended2 = BlendedStatsHelper.getBlendedToolStats(tier2, toolType2, headStats);
+                        float finalDmg2 = blended2[0] - 1.0f;
+                        float finalSpd2 = blended2[1] - 4.0f;
+                        builder.add(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, new net.minecraft.world.entity.ai.attributes.AttributeModifier(Identifier.withDefaultNamespace("base_attack_damage"), finalDmg2, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE), net.minecraft.world.entity.EquipmentSlotGroup.MAINHAND);
+                        builder.add(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED, new net.minecraft.world.entity.ai.attributes.AttributeModifier(Identifier.withDefaultNamespace("base_attack_speed"), finalSpd2, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE), net.minecraft.world.entity.EquipmentSlotGroup.MAINHAND);
                         var built = builder.build();
                         if (!built.modifiers().isEmpty() || existing == null) modified.set(DataComponents.ATTRIBUTE_MODIFIERS, built);
                         modified.set(DataComponents.ENCHANTABLE, new net.minecraft.world.item.enchantment.Enchantable((headStats.enchantability() + handleStats.enchantability())/2));
@@ -505,5 +513,138 @@ public class ShapedRecipeMixin {
         if (path.endsWith("_block")) return formatMat(path);
         String base = stripToBase(path);
         return formatMat(base);
+    }
+
+    private void fixToolForHead(ItemStack stack, com.example.util.BlendedStatsHelper.MaterialStats headStats, java.util.List<ItemStack> headStacks, java.util.List<ItemStack> handleStacks) {
+        try {
+            String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+            String type = path.startsWith("blended_") ? path.substring(8) : path;
+            if (type.equals("sword")) {
+                // Sword rules are identical across tiers (Fabric docs GUIDITE sword example); copy from any sword template
+                ItemStack tmpl = getVanillaTemplateForMixin("sword", ToolMaterial.DIAMOND);
+                Tool tmplTool = tmpl != null ? tmpl.get(DataComponents.TOOL) : null;
+                if (tmplTool != null) {
+                    stack.set(DataComponents.TOOL, tmplTool);
+                } else {
+                    HolderGetter<Block> getter = BuiltInRegistries.acquireBootstrapRegistrationLookup(BuiltInRegistries.BLOCK);
+                    HolderSet<Block> cobweb = HolderSet.direct(Blocks.COBWEB.builtInRegistryHolder());
+                    HolderSet<Block> instant = getter.getOrThrow(BlockTags.SWORD_INSTANTLY_MINES);
+                    HolderSet<Block> efficient = getter.getOrThrow(BlockTags.SWORD_EFFICIENT);
+                    java.util.List<Tool.Rule> rules = java.util.List.of(
+                            Tool.Rule.minesAndDrops(cobweb, 15.0F),
+                            Tool.Rule.overrideSpeed(instant, Float.MAX_VALUE),
+                            Tool.Rule.overrideSpeed(efficient, 1.5F)
+                    );
+                    stack.set(DataComponents.TOOL, new Tool(rules, 1.0F, 2, false));
+                }
+                return;
+            }
+            ToolMaterial tier = selectTierMaterialForMixin(headStacks, headStats);
+            ItemStack template = getVanillaTemplateForMixin(type, tier);
+            if (template == null) {
+                LOGGER.warn("No template for {} tier {}", type, tier);
+                return;
+            }
+            Tool tmplTool = template.get(DataComponents.TOOL);
+            if (tmplTool == null || tmplTool.rules().size() < 2) {
+                LOGGER.warn("Template {} has no tool rules", BuiltInRegistries.ITEM.getKey(template.getItem()));
+                return;
+            }
+            HolderSet<Block> incorrectSet = tmplTool.rules().get(0).blocks();
+            HolderSet<Block> mineableSet = tmplTool.rules().get(1).blocks();
+            java.util.List<Tool.Rule> newRules = java.util.List.of(
+                    Tool.Rule.deniesDrops(incorrectSet),
+                    Tool.Rule.minesAndDrops(mineableSet, headStats.speed())
+            );
+            Tool newTool = new Tool(newRules, 1.0F, tmplTool.damagePerBlock(), tmplTool.canDestroyBlocksInCreative());
+            stack.set(DataComponents.TOOL, newTool);
+        } catch (Exception e) {
+            LOGGER.warn("Failed to fix tool for {}: {}", BuiltInRegistries.ITEM.getKey(stack.getItem()), e.toString(), e);
+        }
+    }
+
+    private ToolMaterial selectTierMaterialForMixin(java.util.List<ItemStack> headStacks, com.example.util.BlendedStatsHelper.MaterialStats headStats) {
+        try {
+            java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+            java.util.Map<String, net.minecraft.world.item.Item> itemMap = new java.util.HashMap<>();
+            for (ItemStack s : headStacks) {
+                if (s.isEmpty()) continue;
+                String p = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+                counts.put(p, counts.getOrDefault(p, 0) + 1);
+                itemMap.putIfAbsent(p, s.getItem());
+            }
+            net.minecraft.world.item.Item dominant = null;
+            if (!counts.isEmpty()) {
+                int max = 0; for (int c : counts.values()) if (c > max) max = c;
+                java.util.List<String> cands = new java.util.ArrayList<>();
+                for (var e : counts.entrySet()) if (e.getValue() == max) cands.add(e.getKey());
+                String best = null; float bestHard = -1; int bestDur = -1;
+                for (String cand : cands) {
+                    net.minecraft.world.item.Item it = itemMap.get(cand);
+                    float hard = com.example.util.BlendedStatsHelper.getHardnessForItem(it);
+                    int dur = com.example.util.BlendedStatsHelper.statsForItem(it).durability();
+                    if (hard > bestHard || (hard == bestHard && dur > bestDur)) { bestHard = hard; bestDur = dur; best = cand; }
+                }
+                if (best != null) dominant = itemMap.get(best);
+            }
+            ToolMaterial domMat = dominant != null ? getToolMaterialForMixin(dominant) : null;
+            ToolMaterial highest = domMat;
+            int highestDur = highest != null ? highest.durability() : -1;
+            for (ItemStack s : headStacks) {
+                ToolMaterial m = getToolMaterialForMixin(s.getItem());
+                if (m == null) {
+                    float hard = com.example.util.BlendedStatsHelper.getHardnessForItem(s.getItem());
+                    if (hard >= 50f) m = ToolMaterial.NETHERITE;
+                    else if (hard >= 5f) m = ToolMaterial.DIAMOND;
+                    else if (hard >= 3f) m = ToolMaterial.IRON;
+                    else if (hard >= 1.5f) m = ToolMaterial.STONE;
+                }
+                if (m != null && m.durability() > highestDur) { highest = m; highestDur = m.durability(); }
+            }
+            if (highest != null) return highest;
+        } catch (Exception ignored) {}
+        int dur = headStats.durability();
+        float speed = headStats.speed();
+        if (dur >= 1800 || speed >= 9.0f) return ToolMaterial.NETHERITE;
+        if (dur >= 1000 || speed >= 8.0f) return ToolMaterial.DIAMOND;
+        if (dur >= 230) return ToolMaterial.IRON;
+        if (dur >= 150) return ToolMaterial.COPPER;
+        if (dur >= 100) return ToolMaterial.STONE;
+        if (speed >= 11f && dur < 80) return ToolMaterial.GOLD;
+        return ToolMaterial.WOOD;
+    }
+
+    private ToolMaterial getToolMaterialForMixin(net.minecraft.world.item.Item item) {
+        return com.example.util.BlendedStatsHelper.getToolMaterialForItem(item);
+    }
+
+    private ItemStack getVanillaTemplateForMixin(String type, ToolMaterial tier) {
+        String prefix;
+        if (tier == ToolMaterial.WOOD) prefix = "wooden";
+        else if (tier == ToolMaterial.STONE) prefix = "stone";
+        else if (tier == ToolMaterial.COPPER) prefix = "copper";
+        else if (tier == ToolMaterial.IRON) prefix = "iron";
+        else if (tier == ToolMaterial.GOLD) prefix = "golden";
+        else if (tier == ToolMaterial.DIAMOND) prefix = "diamond";
+        else if (tier == ToolMaterial.NETHERITE) prefix = "netherite";
+        else prefix = "iron";
+        String[] tryPrefixes;
+        if (prefix.equals("netherite")) tryPrefixes = new String[]{"netherite","diamond","iron","copper","stone","wooden","golden"};
+        else if (prefix.equals("diamond")) tryPrefixes = new String[]{"diamond","iron","copper","stone","wooden","netherite","golden"};
+        else if (prefix.equals("iron")) tryPrefixes = new String[]{"iron","copper","stone","wooden","diamond","netherite","golden"};
+        else if (prefix.equals("copper")) tryPrefixes = new String[]{"copper","iron","stone","wooden","diamond","netherite","golden"};
+        else if (prefix.equals("stone")) tryPrefixes = new String[]{"stone","wooden","copper","iron","diamond","netherite","golden"};
+        else if (prefix.equals("golden")) tryPrefixes = new String[]{"golden","wooden","stone","copper","iron","diamond","netherite"};
+        else tryPrefixes = new String[]{"wooden","stone","copper","iron","diamond","netherite","golden"};
+        for (String p : tryPrefixes) {
+            String id = "minecraft:" + p + "_" + type;
+            net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(id));
+            if (item != null && item != Items.AIR && !BuiltInRegistries.ITEM.getKey(item).getPath().equals("air")) {
+                ItemStack stack = new ItemStack(item);
+                if (stack.get(DataComponents.TOOL) != null) return stack;
+            }
+        }
+        if (!type.equals("pickaxe")) return getVanillaTemplateForMixin("pickaxe", tier);
+        return null;
     }
 }

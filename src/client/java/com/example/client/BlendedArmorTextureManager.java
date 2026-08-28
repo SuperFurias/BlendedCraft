@@ -227,7 +227,8 @@ public class BlendedArmorTextureManager {
                         if (a < 10) col = avg;
                     }
                 }
-                col = (baseA << 24) | (col & 0x00FFFFFF);
+                // Force 100% opaque inside shape – no semi-transparency aside from outside shape
+                col = 0xFF000000 | (col & 0x00FFFFFF);
                 armorTex.setPixel(x, y, col);
             }
         }

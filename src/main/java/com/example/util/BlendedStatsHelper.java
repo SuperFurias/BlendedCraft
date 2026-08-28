@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -13,6 +15,8 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Unit;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EquipmentSlotGroup;
@@ -22,8 +26,12 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.component.SwingAnimation;
+import net.minecraft.world.item.SwingAnimationType;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.enchantment.Enchantable;
@@ -86,6 +94,217 @@ public class BlendedStatsHelper {
         if (id.contains("wood") || id.contains("plank") || id.contains("log")) return 2.0f;
         if (id.contains("leather")) return 0.3f;
         return 1.0f;
+    }
+
+    public static Rarity getRarityForItem(Item item) {
+        try {
+            ItemStack def = item.getDefaultInstance();
+            Rarity r = def.get(DataComponents.RARITY);
+            if (r != null) return r;
+        } catch (Exception ignored) {}
+        String id = BuiltInRegistries.ITEM.getKey(item).getPath();
+        if (id.equals("nether_star") || id.equals("dragon_egg") || id.equals("elytra") || id.equals("totem_of_undying") || id.equals("heart_of_the_sea") || id.equals("conduit") || id.equals("beacon") || id.equals("enchanted_golden_apple") || id.equals("trident") || id.equals("netherite_block") || id.equals("ancient_debris") || id.equals("dragon_breath") || id.equals("shulker_shell"))
+            return id.equals("nether_star") || id.equals("dragon_egg") || id.equals("enchanted_golden_apple") ? Rarity.EPIC : Rarity.RARE;
+        return Rarity.COMMON;
+    }
+
+    private static float getRarityMultiplier(Rarity r) {
+        return switch (r) {
+            case COMMON -> 1.0f;
+            case UNCOMMON -> 1.35f;
+            case RARE -> 1.85f;
+            case EPIC -> 2.6f;
+        };
+    }
+
+    private static boolean isFireResistant(Item item) {
+        try {
+            // In 26.2 fire resistance is via DAMAGE_RESISTANT component; fallback to path check for netherite
+            var stack = item.getDefaultInstance();
+            if (stack.has(DataComponents.DAMAGE_RESISTANT)) return true;
+            String p = BuiltInRegistries.ITEM.getKey(item).getPath();
+            return p.contains("netherite") || p.contains("ancient_debris");
+        } catch (Exception e) { return false; }
+    }
+
+    public static MaterialStats getSpecialStatsForRareItem(Item item) {
+        String id = BuiltInRegistries.ITEM.getKey(item).getPath();
+        if (id.equals("nether_star")) return new MaterialStats(3200, 11.0f, 6.0f, 25, 5, 4.5f, 0.25f);
+        if (id.equals("dragon_egg")) return new MaterialStats(2800, 10.5f, 5.5f, 22, 5, 4.0f, 0.2f);
+        if (id.equals("elytra")) return new MaterialStats(900, 7.0f, 2.0f, 18, 3, 1.5f, 0.05f);
+        if (id.equals("totem_of_undying")) return new MaterialStats(1200, 8.0f, 3.0f, 20, 3, 2.0f, 0.1f);
+        if (id.equals("heart_of_the_sea")) return new MaterialStats(1500, 8.5f, 3.5f, 20, 3, 2.5f, 0.1f);
+        if (id.equals("conduit")) return new MaterialStats(1800, 9.0f, 4.0f, 18, 4, 3.0f, 0.15f);
+        if (id.equals("beacon")) return new MaterialStats(2000, 9.5f, 4.5f, 18, 4, 3.0f, 0.15f);
+        if (id.equals("enchanted_golden_apple")) return new MaterialStats(600, 7.5f, 2.5f, 22, 2, 1.0f, 0f);
+        if (id.equals("trident")) return new MaterialStats(1100, 8.0f, 4.0f, 15, 3, 2.0f, 0.05f);
+        if (id.equals("netherite_block")) return new MaterialStats(2800, 10.0f, 5.0f, 18, 5, 4.0f, 0.2f);
+        if (id.equals("ancient_debris")) return new MaterialStats(2200, 9.5f, 4.5f, 16, 4, 3.5f, 0.15f);
+        if (id.equals("dragon_breath")) return new MaterialStats(800, 6.5f, 2.0f, 15, 2, 1.0f, 0f);
+        if (id.equals("shulker_shell")) return new MaterialStats(700, 6.0f, 1.5f, 12, 2, 1.0f, 0.05f);
+        return null;
+    }
+
+    public static float getToolBaseDamage(String type) {
+        return switch (type) {
+            case "pickaxe" -> 1.0f;
+            case "axe" -> 6.0f;
+            case "shovel" -> 1.5f;
+            case "hoe" -> 0.0f;
+            case "sword" -> 3.0f;
+            default -> 1.0f;
+        };
+    }
+
+    public static float getToolBaseSpeed(String type) {
+        return switch (type) {
+            case "pickaxe" -> -2.8f;
+            case "axe" -> -3.2f;
+            case "shovel" -> -3.0f;
+            case "hoe" -> -3.0f;
+            case "sword" -> -2.4f;
+            default -> -2.8f;
+        };
+    }
+
+    public static net.minecraft.world.item.equipment.ArmorMaterial getEffectiveArmorMaterial(Item item) {
+        net.minecraft.world.item.equipment.ArmorMaterial mat = getArmorMaterialForItem(item);
+        if (mat != null) return mat;
+        Rarity rarity = getRarityForItem(item);
+        float hard = getHardnessForItem(item);
+        ToolMaterial tier = getToolMaterialForItem(item);
+        if (tier == null) {
+            if (hard >= 50f) tier = ToolMaterial.NETHERITE;
+            else if (hard >= 5f) tier = ToolMaterial.DIAMOND;
+            else if (hard >= 3f) tier = ToolMaterial.IRON;
+            else if (hard >= 1.5f) tier = ToolMaterial.STONE;
+            else tier = ToolMaterial.WOOD;
+        }
+        if (tier == ToolMaterial.NETHERITE) return ArmorMaterials.NETHERITE;
+        if (tier == ToolMaterial.DIAMOND) return ArmorMaterials.DIAMOND;
+        if (tier == ToolMaterial.IRON) return ArmorMaterials.IRON;
+        if (tier == ToolMaterial.GOLD) return ArmorMaterials.GOLD;
+        if (tier == ToolMaterial.COPPER) return ArmorMaterials.COPPER;
+        if (tier == ToolMaterial.STONE) return ArmorMaterials.CHAINMAIL;
+        if (rarity == Rarity.EPIC) return ArmorMaterials.NETHERITE;
+        if (rarity == Rarity.RARE) return ArmorMaterials.DIAMOND;
+        if (rarity == Rarity.UNCOMMON) return ArmorMaterials.IRON;
+        return ArmorMaterials.LEATHER;
+    }
+
+    public static int getArmorDefenseForItem(Item item, net.minecraft.world.item.equipment.ArmorType type) {
+        net.minecraft.world.item.equipment.ArmorMaterial mat = getEffectiveArmorMaterial(item);
+        MaterialStats special = getSpecialStatsForRareItem(item);
+        if (special != null) {
+            int base = special.defense();
+            return switch (type) {
+                case HELMET -> Math.max(1, (int)(base * 0.6f));
+                case CHESTPLATE -> base + (special.toughness() > 3 ? 3 : 0);
+                case LEGGINGS -> Math.max(1, (int)(base * 0.9f));
+                case BOOTS -> Math.max(1, (int)(base * 0.5f));
+                case BODY -> base;
+            };
+        }
+        Integer d = mat.defense().get(type);
+        if (d != null) return d;
+        MaterialStats s = statsForItem(item);
+        int baseDef = s.defense();
+        return switch (type) {
+            case HELMET -> Math.max(0, (int)(baseDef * 0.6f));
+            case CHESTPLATE -> baseDef;
+            case LEGGINGS -> Math.max(0, (int)(baseDef * 0.8f));
+            case BOOTS -> Math.max(0, (int)(baseDef * 0.4f));
+            default -> baseDef;
+        };
+    }
+
+    public static float[] getVanillaToolStats(ToolMaterial tier, String toolType) {
+        // Returns {attackDamageDisplayed, attackSpeedDisplayed} for vanilla tool of tier and type (from wiki + Items.java)
+        // Pickaxe: Wood 2/1.2, Stone 3/1.2, Copper 3/1.2, Iron 4/1.2, Gold 2/1.2, Diamond 5/1.2, Netherite 6/1.2
+        // Axe: Wood 7/0.8, Stone 9/0.8, Copper 7/0.8, Iron 9/0.9, Gold 7/1.0, Diamond 9/1.0, Netherite 10/1.0
+        // Shovel: Wood 2.5/1.0, Stone 3.5/1.0, Copper 3.5/1.0, Iron 4.5/1.0, Gold 2.5/1.0, Diamond 5.5/1.0, Netherite 6.5/1.0
+        // Hoe: Wood 1/1.0, Stone 1/2.0, Copper 1/2.0, Iron 1/3.0, Gold 1/1.0, Diamond 1/4.0, Netherite 1/4.0
+        // Sword: Wood 4/1.6, Stone 5/1.6, Copper 5/1.6, Iron 6/1.6, Gold 4/1.6, Diamond 7/1.6, Netherite 8/1.6
+        // Based on ToolMaterial attackDamageBonus + toolBase and Items.java ldc values
+        int tierOrd = 0;
+        if (tier == ToolMaterial.WOOD) tierOrd = 0;
+        else if (tier == ToolMaterial.STONE) tierOrd = 1;
+        else if (tier == ToolMaterial.COPPER) tierOrd = 2;
+        else if (tier == ToolMaterial.IRON) tierOrd = 3;
+        else if (tier == ToolMaterial.GOLD) tierOrd = 4;
+        else if (tier == ToolMaterial.DIAMOND) tierOrd = 5;
+        else if (tier == ToolMaterial.NETHERITE) tierOrd = 6;
+        else tierOrd = 3; // default iron
+        return switch (toolType) {
+            case "pickaxe" -> switch (tierOrd) {
+                case 0 -> new float[]{2.0f, 1.2f};
+                case 1 -> new float[]{3.0f, 1.2f};
+                case 2 -> new float[]{3.0f, 1.2f};
+                case 3 -> new float[]{4.0f, 1.2f};
+                case 4 -> new float[]{2.0f, 1.2f};
+                case 5 -> new float[]{5.0f, 1.2f};
+                case 6 -> new float[]{6.0f, 1.2f};
+                default -> new float[]{4.0f, 1.2f};
+            };
+            case "axe" -> switch (tierOrd) {
+                case 0 -> new float[]{7.0f, 0.8f};
+                case 1 -> new float[]{9.0f, 0.8f};
+                case 2 -> new float[]{7.0f, 0.8f};
+                case 3 -> new float[]{9.0f, 0.9f};
+                case 4 -> new float[]{7.0f, 1.0f};
+                case 5 -> new float[]{9.0f, 1.0f};
+                case 6 -> new float[]{10.0f, 1.0f};
+                default -> new float[]{9.0f, 0.9f};
+            };
+            case "shovel" -> switch (tierOrd) {
+                case 0 -> new float[]{2.5f, 1.0f};
+                case 1 -> new float[]{3.5f, 1.0f};
+                case 2 -> new float[]{3.5f, 1.0f};
+                case 3 -> new float[]{4.5f, 1.0f};
+                case 4 -> new float[]{2.5f, 1.0f};
+                case 5 -> new float[]{5.5f, 1.0f};
+                case 6 -> new float[]{6.5f, 1.0f};
+                default -> new float[]{4.5f, 1.0f};
+            };
+            case "hoe" -> switch (tierOrd) {
+                case 0 -> new float[]{1.0f, 1.0f};
+                case 1 -> new float[]{1.0f, 2.0f};
+                case 2 -> new float[]{1.0f, 2.0f};
+                case 3 -> new float[]{1.0f, 3.0f};
+                case 4 -> new float[]{1.0f, 1.0f};
+                case 5 -> new float[]{1.0f, 4.0f};
+                case 6 -> new float[]{1.0f, 4.0f};
+                default -> new float[]{1.0f, 1.0f};
+            };
+            case "sword" -> switch (tierOrd) {
+                case 0 -> new float[]{4.0f, 1.6f};
+                case 1 -> new float[]{5.0f, 1.6f};
+                case 2 -> new float[]{5.0f, 1.6f};
+                case 3 -> new float[]{6.0f, 1.6f};
+                case 4 -> new float[]{4.0f, 1.6f};
+                case 5 -> new float[]{7.0f, 1.6f};
+                case 6 -> new float[]{8.0f, 1.6f};
+                default -> new float[]{6.0f, 1.6f};
+            };
+            default -> new float[]{4.0f, 1.6f};
+        };
+    }
+
+    public static float[] getBlendedToolStats(ToolMaterial tier, String toolType, MaterialStats headStats) {
+        float[] vanilla = getVanillaToolStats(tier, toolType);
+        float vanillaDmgDisplayed = vanilla[0];
+        float vanillaSpdDisplayed = vanilla[1];
+        float tierBonus = tier.attackDamageBonus();
+        float headBonus = headStats.attackDamage();
+        float excessDmg = headBonus - tierBonus;
+        // For pickaxe base 1, netherite bonus 4, head 6 => excess 2 => 6+2=8
+        // For axe base 6, netherite bonus 4, head 6 => excess 2 => 10+2=12 -> but displayed 13 for nether_star axe is 6+6+1=13, so we need to handle that the vanillaDmg already includes base+bonus+1, so excess should be added directly
+        float blendedDmgDisplayed = vanillaDmgDisplayed + excessDmg;
+        // Clamp and ensure at least vanilla
+        blendedDmgDisplayed = Math.max(vanillaDmgDisplayed, blendedDmgDisplayed);
+        // For attack speed, keep vanilla's displayed speed (tier-dependent for axe/hoe) – handle does not affect
+        float blendedSpdDisplayed = vanillaSpdDisplayed;
+        return new float[]{blendedDmgDisplayed, blendedSpdDisplayed};
     }
 
     private static int getColorForItem(Item item) {
@@ -155,7 +374,12 @@ public class BlendedStatsHelper {
     }
 
     public static MaterialStats statsForItem(Item item) {
+        MaterialStats special = getSpecialStatsForRareItem(item);
+        if (special != null) return special;
         float hardness = getHardnessForItem(item);
+        Rarity rarity = getRarityForItem(item);
+        float rarityMult = getRarityMultiplier(rarity);
+        boolean fireResistant = isFireResistant(item);
         // Map hardness to stats: bedrock 50 -> max, diamond 5 -> high, sand 0.5 -> low
         // Use formula: durability = 50 + hardness*40 (sand 70, stone 110, iron/diamond 250/250, obsidian/bedrock 2050)
         // But we want bedrock > diamond, so obsidian/bedrock should be highest
@@ -228,6 +452,27 @@ public class BlendedStatsHelper {
             if (item == Items.OBSIDIAN) { baseDur=1200; baseSpeed=6.5f; baseDamage=2.5f; baseDefense=3; baseTough=2.0f; }
             if (BuiltInRegistries.ITEM.getKey(item).getPath().contains("bedrock")) { baseDur=3000; baseSpeed=10f; baseDamage=5f; baseDefense=4; baseTough=4f; baseKB=0.2f; }
         }
+        // Apply rarity multiplier (so nether star etc are OP even if hardness low) and fire resistant bonus
+        if (rarityMult != 1.0f) {
+            baseDur = (int)(baseDur * rarityMult);
+            baseSpeed = baseSpeed * (0.75f + 0.25f * rarityMult);
+            baseDamage = baseDamage * (0.8f + 0.2f * rarityMult) + (rarity == Rarity.EPIC ? 1.0f : rarity == Rarity.RARE ? 0.5f : 0f);
+            baseEnchant = (int)(baseEnchant * (0.85f + 0.15f * rarityMult)) + (rarity == Rarity.EPIC ? 3 : rarity == Rarity.RARE ? 1 : 0);
+            baseDefense = Math.min(6, (int)(baseDefense * rarityMult + (rarity == Rarity.EPIC ? 1 : 0)));
+            baseTough = baseTough * rarityMult + (rarity == Rarity.EPIC ? 0.5f : 0f);
+            baseKB = Math.min(0.3f, baseKB * rarityMult + (rarity == Rarity.RARE ? 0.02f : 0f));
+        }
+        if (fireResistant) {
+            baseDur = (int)(baseDur * 1.12f);
+            baseTough += 0.3f;
+            baseKB = Math.min(0.3f, baseKB + 0.03f);
+        }
+        baseDur = Math.min(4000, Math.max(1, baseDur));
+        baseSpeed = Math.min(12.0f, baseSpeed);
+        baseDamage = Math.min(7.0f, baseDamage);
+        baseEnchant = Math.min(30, baseEnchant);
+        baseDefense = Math.min(6, baseDefense);
+        baseTough = Math.min(5.0f, baseTough);
         return new MaterialStats(baseDur, baseSpeed, baseDamage, baseEnchant, baseDefense, baseTough, baseKB);
     }
 
@@ -346,26 +591,28 @@ public class BlendedStatsHelper {
                 int count = 0;
                 for (ItemStack s : input.items()) {
                     if (s.isEmpty()) continue;
-                    var mat = getArmorMaterialForItem(s.getItem());
-                    int def = 0;
-                    float tough = 0;
-                    float kb = 0;
-                    int durBase = statsForItem(s.getItem()).durability();
-                    if (mat != null) {
-                        def = mat.defense().getOrDefault(armorType, 0);
-                        tough = mat.toughness();
-                        kb = mat.knockbackResistance();
-                        durBase = mat.durability();
+                    int def = getArmorDefenseForItem(s.getItem(), armorType);
+                    var effMat = getEffectiveArmorMaterial(s.getItem());
+                    float tough = effMat.toughness();
+                    float kb = effMat.knockbackResistance();
+                    int durBase = effMat.durability();
+                    MaterialStats special = getSpecialStatsForRareItem(s.getItem());
+                    if (special != null) {
+                        tough = special.toughness();
+                        kb = special.knockbackResistance();
+                        durBase = Math.max(5, special.durability() / 80);
+                        // def already from getArmorDefenseForItem which handles special
                     } else {
-                        // For generic blocks like bedrock/obsidian, use hardness-based defense
-                        float hardness = getHardnessForItem(s.getItem());
-                        if (hardness >= 50f) { def = 4; tough = 3.5f; kb = 0.15f; durBase = 40; }
-                        else if (hardness >= 3f) { def = 3; tough = 2.0f; kb = 0f; durBase = 30; }
-                        else if (hardness >= 1f) { def = 1; tough = 0f; kb = 0f; durBase = 15; }
-                        else { def = 0; tough = 0f; kb = 0f; durBase = 5; }
-                        // Override for special
-                        if (s.getItem() == Items.BEDROCK || BuiltInRegistries.ITEM.getKey(s.getItem()).getPath().contains("bedrock")) { def = 5; tough = 4f; kb = 0.2f; durBase = 50; }
-                        if (s.getItem() == Items.OBSIDIAN) { def = 4; tough = 3f; kb = 0.1f; durBase = 35; }
+                        Rarity r = getRarityForItem(s.getItem());
+                        float mult = getRarityMultiplier(r);
+                        if (mult != 1.0f) {
+                            tough = tough * mult;
+                            kb = Math.min(0.3f, kb * mult);
+                        }
+                        if (isFireResistant(s.getItem())) {
+                            tough += 0.3f;
+                            kb = Math.min(0.3f, kb + 0.03f);
+                        }
                     }
                     totalDefense += def;
                     totalToughness += tough;
@@ -429,46 +676,127 @@ public class BlendedStatsHelper {
                 }
             }
 
-            result.set(DataComponents.MAX_DAMAGE, avg.durability());
-            result.set(DataComponents.DAMAGE, 0);
-            result.set(DataComponents.ENCHANTABLE, new Enchantable(avg.enchantability()));
-            if (hasBedrock) {
-                result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
-            }
-            Tool tool = result.get(DataComponents.TOOL);
-            if (tool != null) {
-                Tool newTool = new Tool(tool.rules(), avg.speed(), tool.damagePerBlock(), tool.canDestroyBlocksInCreative());
-                result.set(DataComponents.TOOL, newTool);
-            }
-            ItemAttributeModifiers existing = result.get(DataComponents.ATTRIBUTE_MODIFIERS);
-            var builder = ItemAttributeModifiers.builder();
-            if (existing != null) {
-                for (var entry : existing.modifiers()) {
-                    Holder<net.minecraft.world.entity.ai.attributes.Attribute> attr = entry.attribute();
-                    if (attr.is(Attributes.ATTACK_DAMAGE) || attr.is(Attributes.ATTACK_SPEED) || attr.is(Attributes.ARMOR) || attr.is(Attributes.ARMOR_TOUGHNESS)) {
-                        continue;
-                    }
-                    builder.add(attr, entry.modifier(), entry.slot());
+            // Vanilla parity: copy dominant vanilla tool's components (only texture differs)
+            ItemStack vanillaCopy = getVanillaCopyForDominant(input, result);
+            if (vanillaCopy != null) {
+                var vTool = vanillaCopy.get(DataComponents.TOOL);
+                if (vTool != null) result.set(DataComponents.TOOL, vTool);
+                var vAttrs = vanillaCopy.get(DataComponents.ATTRIBUTE_MODIFIERS);
+                if (vAttrs != null) result.set(DataComponents.ATTRIBUTE_MODIFIERS, vAttrs);
+                Integer vMax = vanillaCopy.get(DataComponents.MAX_DAMAGE);
+                if (vMax != null) result.set(DataComponents.MAX_DAMAGE, vMax);
+                result.set(DataComponents.DAMAGE, 0);
+                var vEnchant = vanillaCopy.get(DataComponents.ENCHANTABLE);
+                if (vEnchant != null) result.set(DataComponents.ENCHANTABLE, vEnchant);
+                var vSwing = vanillaCopy.get(DataComponents.SWING_ANIMATION);
+                if (vSwing != null) result.set(DataComponents.SWING_ANIMATION, vSwing);
+                else result.set(DataComponents.SWING_ANIMATION, new SwingAnimation(SwingAnimationType.WHACK, 6));
+                var vRepair = vanillaCopy.get(DataComponents.REPAIRABLE);
+                if (vRepair != null) result.set(DataComponents.REPAIRABLE, vRepair);
+                if (hasBedrock) result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
+                // Ensure whack for tools if not already set
+                if (result.get(DataComponents.SWING_ANIMATION) == null) {
+                    result.set(DataComponents.SWING_ANIMATION, new SwingAnimation(SwingAnimationType.WHACK, 6));
                 }
-            }
-            if (isTool || FlexibleRecipeHelper.isFlexibleResult(result)) {
-                Identifier dmgId = Identifier.withDefaultNamespace("base_attack_damage");
-                Identifier speedId = Identifier.withDefaultNamespace("base_attack_speed");
-                float attackSpeed = -2.8f;
+            } else {
+                result.set(DataComponents.MAX_DAMAGE, avg.durability());
+                result.set(DataComponents.DAMAGE, 0);
+                result.set(DataComponents.ENCHANTABLE, new Enchantable(avg.enchantability()));
+                if (hasBedrock) {
+                    result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
+                }
+                // Fix tool correctly (head speed, proper mineable tag, default 1.0)
+                fixToolComponent(result, input, avg);
+                ItemAttributeModifiers existing = result.get(DataComponents.ATTRIBUTE_MODIFIERS);
+                var builder = ItemAttributeModifiers.builder();
                 if (existing != null) {
-                    for (var e : existing.modifiers()) {
-                        if (e.attribute().is(Attributes.ATTACK_SPEED)) {
-                            attackSpeed = (float) e.modifier().amount();
-                            break;
+                    for (var entry : existing.modifiers()) {
+                        Holder<net.minecraft.world.entity.ai.attributes.Attribute> attr = entry.attribute();
+                        if (attr.is(Attributes.ATTACK_DAMAGE) || attr.is(Attributes.ATTACK_SPEED) || attr.is(Attributes.ARMOR) || attr.is(Attributes.ARMOR_TOUGHNESS)) {
+                            continue;
+                        }
+                        builder.add(attr, entry.modifier(), entry.slot());
+                    }
+                }
+                if (isTool || FlexibleRecipeHelper.isFlexibleResult(result)) {
+                    Identifier dmgId = Identifier.withDefaultNamespace("base_attack_damage");
+                    Identifier speedId = Identifier.withDefaultNamespace("base_attack_speed");
+                    String tPath = BuiltInRegistries.ITEM.getKey(result.getItem()).getPath();
+                    String toolType = tPath.startsWith("blended_") ? tPath.substring(8) : tPath;
+                    float baseDmg = getToolBaseDamage(toolType);
+                    float baseSpd = getToolBaseSpeed(toolType);
+                    java.util.List<ItemStack> headForDmg = new java.util.ArrayList<>();
+                    for (ItemStack s : input.items()) if (!s.isEmpty() && !s.is(Items.STICK)) headForDmg.add(s);
+                    var headStatsForDmg = headForDmg.isEmpty() ? avg : averageStatsForStacks(headForDmg);
+                    ToolMaterial tierForDmg = selectTierMaterial(headForDmg, headStatsForDmg);
+                    float[] blendedStatsDmg = getBlendedToolStats(tierForDmg, toolType, headStatsForDmg);
+                    float finalDmg = blendedStatsDmg[0] - 1.0f; // displayed includes +1 player base, modifier is displayed-1
+                    // Actually getBlendedToolStats returns displayed, we need modifier = displayed -1 (player base)
+                    // For pickaxe netherite displayed 6 -> modifier 5, for blended nether_star pickaxe displayed 8 -> modifier 7
+                    finalDmg = blendedStatsDmg[0] - 1.0f;
+                    float finalSpd = blendedStatsDmg[1] - 4.0f; // displayed 1.2 -> modifier -2.8, so modifier = displayed -4
+                    finalSpd = blendedStatsDmg[1] - 4.0f;
+                    // Preserve existing attack speed if present (for handle influence via ShapedRecipeMixin), otherwise use base
+                    if (existing != null) {
+                        for (var e : existing.modifiers()) {
+                            if (e.attribute().is(Attributes.ATTACK_SPEED)) {
+                                // Keep existing speed if it's not the default Wood pickaxe speed, otherwise use per-tool base
+                                // For fallback (no handle), just use base
+                                break;
+                            }
                         }
                     }
+                    builder.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(dmgId, finalDmg, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
+                    builder.add(Attributes.ATTACK_SPEED, new AttributeModifier(speedId, finalSpd, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
                 }
-                builder.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(dmgId, avg.attackDamage(), AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
-                builder.add(Attributes.ATTACK_SPEED, new AttributeModifier(speedId, attackSpeed, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
+                ItemAttributeModifiers built = builder.build();
+                if (!built.modifiers().isEmpty() || existing == null) {
+                    result.set(DataComponents.ATTRIBUTE_MODIFIERS, built);
+                }
+                if (result.get(DataComponents.SWING_ANIMATION) == null) {
+                    result.set(DataComponents.SWING_ANIMATION, new SwingAnimation(SwingAnimationType.WHACK, 6));
+                }
             }
-            ItemAttributeModifiers built = builder.build();
-            if (!built.modifiers().isEmpty() || existing == null) {
-                result.set(DataComponents.ATTRIBUTE_MODIFIERS, built);
+            // Ensure Tool component is correct for blended tools (fixes “works on grass” bug: default speed 1.0, correct mineable tag and tier)
+            if (!isArmor) {
+                fixToolComponent(result, input, avg);
+                // Fix per-tool attack damage/speed that was incorrectly uniform (all nether_star had 7/1.65)
+                String tPathFix = BuiltInRegistries.ITEM.getKey(result.getItem()).getPath();
+                String toolTypeFix = tPathFix.startsWith("blended_") ? tPathFix.substring(8) : tPathFix;
+                if (toolTypeFix.equals("pickaxe") || toolTypeFix.equals("axe") || toolTypeFix.equals("shovel") || toolTypeFix.equals("hoe") || toolTypeFix.equals("sword")) {
+                    java.util.List<ItemStack> headForFix = new java.util.ArrayList<>();
+                    for (ItemStack s : input.items()) if (!s.isEmpty() && !s.is(Items.STICK)) headForFix.add(s);
+                    var headStatsForFix = headForFix.isEmpty() ? avg : averageStatsForStacks(headForFix);
+                    ToolMaterial tierForFix = selectTierMaterial(headForFix, headStatsForFix);
+                    float[] blendedFix = getBlendedToolStats(tierForFix, toolTypeFix, headStatsForFix);
+                    float expectedDmgFix = blendedFix[0] - 1.0f;
+                    float expectedSpdFix = blendedFix[1] - 4.0f;
+                    var curAttrsFix = result.get(DataComponents.ATTRIBUTE_MODIFIERS);
+                    boolean needsFix2 = false;
+                    if (curAttrsFix != null) {
+                        boolean hasDmg = false, hasSpd = false;
+                        for (var e : curAttrsFix.modifiers()) {
+                            String n = e.attribute().value().getDescriptionId();
+                            double amt = e.modifier().amount();
+                            if (n.contains("attack_damage")) { hasDmg = true; if (Math.abs(amt - expectedDmgFix) > 0.01) needsFix2 = true; }
+                            if (n.contains("attack_speed")) { hasSpd = true; if (Math.abs(amt - expectedSpdFix) > 0.01) needsFix2 = true; }
+                        }
+                        if (!hasDmg || !hasSpd) needsFix2 = true;
+                    } else needsFix2 = true;
+                    if (needsFix2) {
+                        var builder2 = ItemAttributeModifiers.builder();
+                        if (curAttrsFix != null) {
+                            for (var e : curAttrsFix.modifiers()) {
+                                var attr = e.attribute();
+                                if (attr.is(Attributes.ATTACK_DAMAGE) || attr.is(Attributes.ATTACK_SPEED)) continue;
+                                builder2.add(attr, e.modifier(), e.slot());
+                            }
+                        }
+                        builder2.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(Identifier.withDefaultNamespace("base_attack_damage"), expectedDmgFix, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
+                        builder2.add(Attributes.ATTACK_SPEED, new AttributeModifier(Identifier.withDefaultNamespace("base_attack_speed"), expectedSpdFix, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
+                        result.set(DataComponents.ATTRIBUTE_MODIFIERS, builder2.build());
+                    }
+                }
             }
             String dominant2 = getDominantMaterialName(input);
             String baseType2 = getBaseTypeName(result);
@@ -600,6 +928,245 @@ public class BlendedStatsHelper {
             if (part.length() > 1) sb.append(part.substring(1));
         }
         return sb.toString();
+    }
+
+    private static ItemStack getVanillaCopyForDominant(CraftingInput input, ItemStack result) {
+        // Find dominant ingredient item
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        java.util.Map<String, Item> itemMap = new java.util.HashMap<>();
+        int total = 0;
+        for (ItemStack s : input.items()) {
+            if (s.isEmpty()) continue;
+            String path = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+            counts.put(path, counts.getOrDefault(path, 0) + 1);
+            itemMap.putIfAbsent(path, s.getItem());
+            total++;
+        }
+        if (total == 0 || counts.isEmpty()) return null;
+        int max = 0; for (int c : counts.values()) if (c > max) max = c;
+        java.util.List<String> cands = new java.util.ArrayList<>();
+        for (var e : counts.entrySet()) if (e.getValue() == max) cands.add(e.getKey());
+        String dominantPath = null;
+        if (cands.size() == 1 && max * 2 > total) dominantPath = cands.get(0);
+        else if (!cands.isEmpty()) {
+            String best = null; float bestHard = -1; int bestDur = -1;
+            for (String cand : cands) {
+                Item it = itemMap.get(cand);
+                float hard = getHardnessForItem(it);
+                int dur = statsForItem(it).durability();
+                if (hard > bestHard || (hard == bestHard && dur > bestDur)) { bestHard = hard; bestDur = dur; best = cand; }
+            }
+            dominantPath = best;
+        }
+        if (dominantPath == null) return null;
+        String domBase = stripToBaseMaterial(dominantPath);
+        // Normalize domBase to material name like iron, diamond, netherite, gold, copper
+        String mat = domBase.toLowerCase();
+        // Handle special cases: netherite_ingot -> netherite, gold_ingot -> gold, etc. strip already
+        // Map to vanilla tool/armor for result type
+        String resultPath = BuiltInRegistries.ITEM.getKey(result.getItem()).getPath();
+        String type = resultPath.startsWith("blended_") ? resultPath.substring(8) : resultPath;
+        // type is pickaxe, axe, shovel, sword, hoe, helmet, chestplate, leggings, boots
+        String vanillaId = "minecraft:" + mat + "_" + type;
+        // For ingot materials, mat is like iron, diamond, netherite, gold, copper, emerald
+        // Try direct lookup
+        var vanillaItem = BuiltInRegistries.ITEM.getValue(Identifier.parse(vanillaId));
+        if (vanillaItem != null && vanillaItem != net.minecraft.world.item.Items.AIR) {
+            // Check if it's actually registered (not air)
+            if (!BuiltInRegistries.ITEM.getKey(vanillaItem).getPath().equals("air")) {
+                return new ItemStack(vanillaItem);
+            }
+        }
+        // Fallback: try netherite_block etc. but for tools we already handled
+        // For armor with netherite, mat is netherite, type chestplate -> netherite_chestplate exists
+        // For planks/log etc., fallback to wooden tool
+        String fallbackId = "minecraft:wooden_" + type;
+        if (type.equals("helmet") || type.equals("chestplate") || type.equals("leggings") || type.equals("boots")) {
+            fallbackId = "minecraft:leather_" + type;
+            // leather helmet etc. exists, but try iron as generic
+            var fb2 = BuiltInRegistries.ITEM.getValue(Identifier.parse("minecraft:iron_" + type));
+            if (fb2 != null && !BuiltInRegistries.ITEM.getKey(fb2).getPath().equals("air")) return new ItemStack(fb2);
+        }
+        var fb = BuiltInRegistries.ITEM.getValue(Identifier.parse(fallbackId));
+        if (fb != null && !BuiltInRegistries.ITEM.getKey(fb).getPath().equals("air")) return new ItemStack(fb);
+        return null;
+    }
+
+    // --- Tool fix helpers (corrects “pickaxe works on grass” etc) - uses vanilla template to avoid bootstrap lookup bugs ---
+    private static void fixToolComponent(ItemStack result, CraftingInput input, MaterialStats avg) {
+        try {
+            String path = BuiltInRegistries.ITEM.getKey(result.getItem()).getPath();
+            String type = path.startsWith("blended_") ? path.substring(8) : path;
+            if (!(type.equals("pickaxe") || type.equals("axe") || type.equals("shovel") || type.equals("hoe") || type.equals("sword"))) {
+                return;
+            }
+            java.util.List<ItemStack> headStacks = new java.util.ArrayList<>();
+            for (ItemStack s : input.items()) {
+                if (s.isEmpty()) continue;
+                if (s.is(Items.STICK)) continue;
+                headStacks.add(s);
+            }
+            MaterialStats headStats = headStacks.isEmpty() ? avg : averageStatsForStacks(headStacks);
+            float miningSpeed = headStats.speed();
+            // Sword: use vanilla sword template (same rules across tiers, speed not material dependent)
+            if (type.equals("sword")) {
+                ItemStack tmpl = getVanillaTemplate("sword", ToolMaterial.DIAMOND);
+                Tool tmplTool = tmpl != null ? tmpl.get(DataComponents.TOOL) : null;
+                if (tmplTool != null) {
+                    result.set(DataComponents.TOOL, tmplTool);
+                } else {
+                    // fallback to manual sword rules if template missing
+                    HolderGetter<Block> getter = BuiltInRegistries.acquireBootstrapRegistrationLookup(BuiltInRegistries.BLOCK);
+                    HolderSet<Block> cobweb = HolderSet.direct(Blocks.COBWEB.builtInRegistryHolder());
+                    HolderSet<Block> instant = getter.getOrThrow(BlockTags.SWORD_INSTANTLY_MINES);
+                    HolderSet<Block> efficient = getter.getOrThrow(BlockTags.SWORD_EFFICIENT);
+                    java.util.List<Tool.Rule> rules = java.util.List.of(
+                            Tool.Rule.minesAndDrops(cobweb, 15.0F),
+                            Tool.Rule.overrideSpeed(instant, Float.MAX_VALUE),
+                            Tool.Rule.overrideSpeed(efficient, 1.5F)
+                    );
+                    result.set(DataComponents.TOOL, new Tool(rules, 1.0F, 2, false));
+                }
+                return;
+            }
+            // Determine tier material from head (highest among ingredients to preserve best capability)
+            ToolMaterial tier = selectTierMaterial(headStacks, headStats);
+            ItemStack template = getVanillaTemplate(type, tier);
+            if (template == null) {
+                LOGGER.warn("No vanilla template for {} tier {}", type, tier);
+                return;
+            }
+            Tool tmplTool = template.get(DataComponents.TOOL);
+            if (tmplTool == null || tmplTool.rules().size() < 2) {
+                LOGGER.warn("Template {} has no tool rules", BuiltInRegistries.ITEM.getKey(template.getItem()));
+                return;
+            }
+            // Reuse HolderSets from template, replace speed with blended head speed
+            HolderSet<Block> incorrectSet = tmplTool.rules().get(0).blocks();
+            HolderSet<Block> mineableSet = tmplTool.rules().get(1).blocks();
+            java.util.List<Tool.Rule> newRules = java.util.List.of(
+                    Tool.Rule.deniesDrops(incorrectSet),
+                    Tool.Rule.minesAndDrops(mineableSet, miningSpeed)
+            );
+            Tool newTool = new Tool(newRules, 1.0F, tmplTool.damagePerBlock(), tmplTool.canDestroyBlocksInCreative());
+            result.set(DataComponents.TOOL, newTool);
+        } catch (Exception e) {
+            LOGGER.warn("Failed to fix tool component for {}: {}", BuiltInRegistries.ITEM.getKey(result.getItem()), e.toString(), e);
+        }
+    }
+
+    private static ToolMaterial selectTierMaterial(java.util.List<ItemStack> headStacks, MaterialStats headStats) {
+        try {
+            java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+            java.util.Map<String, Item> itemMap = new java.util.HashMap<>();
+            for (ItemStack s : headStacks) {
+                if (s.isEmpty()) continue;
+                String p = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+                counts.put(p, counts.getOrDefault(p, 0) + 1);
+                itemMap.putIfAbsent(p, s.getItem());
+            }
+            Item dominant = null;
+            if (!counts.isEmpty()) {
+                int max = 0; for (int c : counts.values()) if (c > max) max = c;
+                java.util.List<String> cands = new java.util.ArrayList<>();
+                for (var e : counts.entrySet()) if (e.getValue() == max) cands.add(e.getKey());
+                String best = null; float bestHard = -1; int bestDur = -1;
+                for (String cand : cands) {
+                    Item it = itemMap.get(cand);
+                    float hard = getHardnessForItem(it);
+                    int dur = statsForItem(it).durability();
+                    if (hard > bestHard || (hard == bestHard && dur > bestDur)) { bestHard = hard; bestDur = dur; best = cand; }
+                }
+                if (best != null) dominant = itemMap.get(best);
+            }
+            ToolMaterial domMat = dominant != null ? getToolMaterialForItem(dominant) : null;
+            ToolMaterial highest = domMat;
+            int highestDur = highest != null ? highest.durability() : -1;
+            for (ItemStack s : headStacks) {
+                ToolMaterial m = getToolMaterialForItem(s.getItem());
+                if (m == null) {
+                    float hard = getHardnessForItem(s.getItem());
+                    if (hard >= 50f) m = ToolMaterial.NETHERITE;
+                    else if (hard >= 5f) m = ToolMaterial.DIAMOND;
+                    else if (hard >= 3f) m = ToolMaterial.IRON;
+                    else if (hard >= 1.5f) m = ToolMaterial.STONE;
+                }
+                if (m != null && m.durability() > highestDur) { highest = m; highestDur = m.durability(); }
+            }
+            if (highest != null) return highest;
+        } catch (Exception ignored) {}
+        int dur = headStats.durability();
+        float speed = headStats.speed();
+        if (dur >= 1800 || speed >= 9.0f) return ToolMaterial.NETHERITE;
+        if (dur >= 1000 || speed >= 8.0f) return ToolMaterial.DIAMOND;
+        if (dur >= 230) return ToolMaterial.IRON;
+        if (dur >= 150) return ToolMaterial.COPPER;
+        if (dur >= 100) return ToolMaterial.STONE;
+        if (speed >= 11f && dur < 80) return ToolMaterial.GOLD;
+        return ToolMaterial.WOOD;
+    }
+
+    public static ToolMaterial getToolMaterialForItem(Item item) {
+        if (item == Items.DIAMOND) return ToolMaterial.DIAMOND;
+        if (item == Items.NETHERITE_INGOT) return ToolMaterial.NETHERITE;
+        if (item == Items.IRON_INGOT) return ToolMaterial.IRON;
+        if (item == Items.GOLD_INGOT) return ToolMaterial.GOLD;
+        if (item == Items.COPPER_INGOT) return ToolMaterial.COPPER;
+        if (item == Items.COBBLESTONE || item == Items.STONE) return ToolMaterial.STONE;
+        if (item == Items.OAK_PLANKS || item == Items.STICK) return ToolMaterial.WOOD;
+        String id = BuiltInRegistries.ITEM.getKey(item).getPath();
+        if (id.contains("netherite")) return ToolMaterial.NETHERITE;
+        if (id.contains("diamond")) return ToolMaterial.DIAMOND;
+        if (id.contains("iron")) return ToolMaterial.IRON;
+        if (id.contains("gold")) return ToolMaterial.GOLD;
+        if (id.contains("copper")) return ToolMaterial.COPPER;
+        if (id.contains("stone") || id.contains("cobble")) return ToolMaterial.STONE;
+        if (id.contains("plank") || id.contains("wood") || id.contains("log")) return ToolMaterial.WOOD;
+        return null;
+    }
+
+    private static TagKey<Block> tagForToolMaterial(ToolMaterial mat) {
+        if (mat == ToolMaterial.NETHERITE) return BlockTags.INCORRECT_FOR_NETHERITE_TOOL;
+        if (mat == ToolMaterial.DIAMOND) return BlockTags.INCORRECT_FOR_DIAMOND_TOOL;
+        if (mat == ToolMaterial.GOLD) return BlockTags.INCORRECT_FOR_GOLD_TOOL;
+        if (mat == ToolMaterial.IRON) return BlockTags.INCORRECT_FOR_IRON_TOOL;
+        if (mat == ToolMaterial.COPPER) return BlockTags.INCORRECT_FOR_COPPER_TOOL;
+        if (mat == ToolMaterial.STONE) return BlockTags.INCORRECT_FOR_STONE_TOOL;
+        return BlockTags.INCORRECT_FOR_WOODEN_TOOL;
+    }
+
+    private static ItemStack getVanillaTemplate(String type, ToolMaterial tier) {
+        String prefix;
+        if (tier == ToolMaterial.WOOD) prefix = "wooden";
+        else if (tier == ToolMaterial.STONE) prefix = "stone";
+        else if (tier == ToolMaterial.COPPER) prefix = "copper";
+        else if (tier == ToolMaterial.IRON) prefix = "iron";
+        else if (tier == ToolMaterial.GOLD) prefix = "golden";
+        else if (tier == ToolMaterial.DIAMOND) prefix = "diamond";
+        else if (tier == ToolMaterial.NETHERITE) prefix = "netherite";
+        else prefix = "iron";
+        String[] tryPrefixes;
+        // order to try: desired first, then fallbacks by strength
+        if (prefix.equals("netherite")) tryPrefixes = new String[]{"netherite","diamond","iron","copper","stone","wooden","golden"};
+        else if (prefix.equals("diamond")) tryPrefixes = new String[]{"diamond","iron","copper","stone","wooden","netherite","golden"};
+        else if (prefix.equals("iron")) tryPrefixes = new String[]{"iron","copper","stone","wooden","diamond","netherite","golden"};
+        else if (prefix.equals("copper")) tryPrefixes = new String[]{"copper","iron","stone","wooden","diamond","netherite","golden"};
+        else if (prefix.equals("stone")) tryPrefixes = new String[]{"stone","wooden","copper","iron","diamond","netherite","golden"};
+        else if (prefix.equals("golden")) tryPrefixes = new String[]{"golden","wooden","stone","copper","iron","diamond","netherite"};
+        else tryPrefixes = new String[]{"wooden","stone","copper","iron","diamond","netherite","golden"};
+        for (String p : tryPrefixes) {
+            String id = "minecraft:" + p + "_" + type;
+            Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(id));
+            if (item != null && item != Items.AIR && !BuiltInRegistries.ITEM.getKey(item).getPath().equals("air")) {
+                ItemStack stack = new ItemStack(item);
+                if (stack.get(DataComponents.TOOL) != null) return stack;
+            }
+        }
+        // ultimate fallback: pickaxe
+        if (!type.equals("pickaxe")) {
+            return getVanillaTemplate("pickaxe", tier);
+        }
+        return null;
     }
 
     private static String getBaseTypeName(ItemStack result) {

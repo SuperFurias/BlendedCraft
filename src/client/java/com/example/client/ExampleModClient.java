@@ -95,12 +95,23 @@ public class ExampleModClient implements ClientModInitializer {
 					String col = pct >= 80 ? "§a" : pct >= 50 ? "§e" : "§c";
 					lines.add(Component.literal(col + " Durability: §f" + dur + " / " + maxDamage + " §8[" + pct + "%]"));
 				}
-				if (isTool) {
-					var tool = stack.get(DataComponents.TOOL);
-					if (tool != null) {
-						float speed = tool.defaultMiningSpeed();
-						lines.add(Component.literal("§bMining Speed: §f" + String.format("%.2f", speed) + " §8[Head]"));
-					}
+                if (isTool) {
+                    var tool = stack.get(DataComponents.TOOL);
+                    if (tool != null) {
+                        float speed = tool.defaultMiningSpeed();
+                        try {
+                            String p = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+                            boolean isSword = p.contains("sword");
+                            if (!isSword) {
+                                if (tool.rules().size() >= 2) {
+                                    var maybe = tool.rules().get(1).speed();
+                                    if (maybe.isPresent() && maybe.get() != Float.MAX_VALUE) speed = maybe.get();
+                                    else for (var r : tool.rules()) { var s = r.speed(); if (s.isPresent() && s.get() != Float.MAX_VALUE) { speed = s.get(); break; } }
+                                } else for (var r : tool.rules()) { var s = r.speed(); if (s.isPresent() && s.get() != Float.MAX_VALUE) { speed = s.get(); break; } }
+                            } else speed = -1;
+                        } catch (Exception ignored) {}
+                        if (speed >= 0) lines.add(Component.literal("§bMining Speed: §f" + String.format("%.2f", speed) + " §8[Head]"));
+                    }
 					var attrs = stack.get(DataComponents.ATTRIBUTE_MODIFIERS);
 					if (attrs != null) {
 						for (var e : attrs.modifiers()) {

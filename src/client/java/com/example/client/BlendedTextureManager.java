@@ -407,7 +407,8 @@ public class BlendedTextureManager {
                 int avg = avgs.get(bestIdx);
                 int[] seed = seeds.get(bestIdx);
                 int col = sampleForTool(src, x, y, seed, bbox, isSmall, avg);
-                col = (baseA << 24) | (col & 0x00FFFFFF);
+                // Force 100% opaque inside shape – no semi-transparency aside from outside shape (outside is 0, inside is 0xFF)
+                col = 0xFF000000 | (col & 0x00FFFFFF);
                 blended.setPixel(x, y, col);
             }
         }
