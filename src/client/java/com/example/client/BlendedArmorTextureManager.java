@@ -233,10 +233,12 @@ public class BlendedArmorTextureManager {
             }
         }
 
+        // Vanilla-style per-pixel shading transfer (borders, bevels, helmet visor band)
+        // NOTE: must run BEFORE baseMask.close()
+        BlendedTextureManager.applyVanillaShadeTransfer(armorTex, baseMask, null);
+
         for (NativeImage img : uniqueMap.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
-        // Vanilla-style 1px darker hue on the silhouette edge
-        BlendedTextureManager.applyVanillaEdgeHue(armorTex);
         String hash = Integer.toHexString(key.hashCode());
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "armor_blended/" + hash);
         var tm = Minecraft.getInstance().getTextureManager();

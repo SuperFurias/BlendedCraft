@@ -38,6 +38,9 @@ public final class BlendedItemModel implements ItemModel {
             fallback.update(state, stack, resolver, displayContext, level, owner, seed);
             return;
         }
+        // Per-blend identity (like vanilla SpecialModelWrapper appends its arg): without this, the GUI
+        // item atlas caches ONE tile for all enchanted blends and they all show the same texture
+        state.appendModelIdentityElement(arg);
         ItemStackRenderState.LayerRenderState layer = state.newLayer();
         if (stack.hasFoil()) {
             layer.setFoilType(ItemStackRenderState.FoilType.STANDARD);
@@ -46,7 +49,7 @@ public final class BlendedItemModel implements ItemModel {
         }
         layer.setExtents(arg.mesh().extents());
         layer.setLocalTransform(transformation);
-        layer.setupSpecialModel(RENDERER, arg);
+        layer.setupSpecialModel(displayContext == ItemDisplayContext.GUI ? BlendedSpecialRenderer.GUI : BlendedSpecialRenderer.INSTANCE, arg);
         properties.applyToLayer(layer, displayContext);
     }
 }

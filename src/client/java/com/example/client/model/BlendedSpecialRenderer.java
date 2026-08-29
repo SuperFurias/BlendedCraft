@@ -19,9 +19,15 @@ import java.util.function.Consumer;
  * ItemModelResolver-driven context.
  */
 public final class BlendedSpecialRenderer implements SpecialModelRenderer<BlendedSpecialRenderer.BlendArg> {
-    public static final BlendedSpecialRenderer INSTANCE = new BlendedSpecialRenderer();
+    public static final BlendedSpecialRenderer INSTANCE = new BlendedSpecialRenderer(false);
+    /** GUI variant: uses the strong item glint (RenderType.glint) so inventory enchant glint matches vanilla strength. */
+    public static final BlendedSpecialRenderer GUI = new BlendedSpecialRenderer(true);
 
-    private BlendedSpecialRenderer() {}
+    private final boolean strongGlint;
+
+    private BlendedSpecialRenderer(boolean strongGlint) {
+        this.strongGlint = strongGlint;
+    }
 
     @Override
     public BlendArg extractArgument(ItemStack stack) {
@@ -46,7 +52,13 @@ public final class BlendedSpecialRenderer implements SpecialModelRenderer<Blende
         RenderType rt = arg.mesh().renderType(arg.texture());
         collector.order(0).submitCustomGeometry(poseStack, rt, (pose, vc) -> arg.mesh().emit(pose, vc, light, overlay, false));
         if (foil) {
-            collector.order(1).submitCustomGeometry(poseStack, RenderTypes.entityGlint(), (pose, vc) -> arg.mesh().emit(pose, vc, light, overlay, true));
+            // world rendering keeps a single entityGlint pass (matches vanilla held/dropped strength);
+            // GUI renders into the item atlas where a single pass reads weak, so draw it twice there
+            RenderType glintRt = RenderTypes.entityGlint();
+            collector.order(1).submitCustomGeometry(poseStack, glintRt, (pose, vc) -> arg.mesh().emit(pose, vc, light, overlay, true));
+            if (strongGlint) {
+                collector.order(2).submitCustomGeometry(poseStack, glintRt, (pose, vc) -> arg.mesh().emit(pose, vc, light, overlay, true));
+            }
         }
     }
 

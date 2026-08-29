@@ -27,6 +27,8 @@ public class GuiGraphicsExtractorMixin {
         if (stack.isEmpty()) return;
         if (!FlexibleRecipeHelper.isFlexibleResult(stack)) return;
         if (!stack.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA)) return;
+        // Enchanted items: let the vanilla GUI path render them through BlendedItemModel so the enchant glint shows
+        if (stack.hasFoil()) return;
         try {
             Identifier blendedId = BlendedTextureManager.getOrCreateBlendedTexture(stack);
             if (blendedId == null) return;

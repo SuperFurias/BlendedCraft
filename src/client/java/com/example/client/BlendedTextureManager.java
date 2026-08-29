@@ -38,31 +38,83 @@ public class BlendedTextureManager {
      * which makes the shape read clearly. This post-process replicates that on runtime
      * composed textures: every opaque pixel touching transparency is darkened by 25%.
      */
-    public static void applyVanillaEdgeHue(NativeImage img) {
+    /**
+     * Transfers vanilla's own per-pixel shading pattern (borders, guard bevels, helmet visor band,
+     * blade highlights) from the vanilla sprite onto the composed texture, positionally exact.
+     * Adaptive per piece: bright pieces are multiplied by the vanilla shade ratio (dark where vanilla
+     * is dark, bright where vanilla is bright); dark pieces (e.g. a black sword) get the inverted,
+     * additive variant so their hue becomes LIGHTER where vanilla is shaded.
+     */
+    /** pieces with average luma below this are considered dark -> their hue becomes lighter instead of darker */
+    private static final double DARK_PIECE_LUMA = 70.0;
+
+    public static void applyVanillaShadeTransfer(NativeImage composed, NativeImage vanilla, boolean[][] handleMask) {
         try {
-            int w = img.getWidth();
-            int h = img.getHeight();
-            boolean[][] opaque = new boolean[w][h];
+            int w = composed.getWidth();
+            int h = composed.getHeight();
+            if (vanilla == null || vanilla.getWidth() != w || vanilla.getHeight() != h) return;
+
+            // vanilla average luma
+            long vSum = 0;
+            int vCnt = 0;
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
-                    opaque[x][y] = ((img.getPixel(x, y) >> 24) & 0xFF) > 16;
+                    int col = vanilla.getPixel(x, y);
+                    if (((col >> 24) & 0xFF) <= 16) continue;
+                    vSum += ((col >> 16) & 0xFF) + ((col >> 8) & 0xFF) + (col & 0xFF);
+                    vCnt++;
                 }
             }
+            if (vCnt == 0) return;
+            double vanillaAvg = (vSum / 3.0) / vCnt;
+
+            // per-piece (head/handle) composed average luma -> adaptive direction
+            long headLuma = 0, handleLuma = 0;
+            int headCnt = 0, handleCnt = 0;
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
-                    if (!opaque[x][y]) continue;
-                    boolean edge = (x == 0 || !opaque[x - 1][y]) || (x == w - 1 || !opaque[x + 1][y])
-                            || (y == 0 || !opaque[x][y - 1]) || (y == h - 1 || !opaque[x][y + 1]);
-                    if (!edge) continue;
-                    int col = img.getPixel(x, y);
-                    int r = (int) Math.round((col & 0xFF) * 0.75);
-                    int g = (int) Math.round(((col >> 8) & 0xFF) * 0.75);
-                    int b = (int) Math.round(((col >> 16) & 0xFF) * 0.75);
-                    img.setPixel(x, y, (col & 0xFF000000) | (b << 16) | (g << 8) | r);
+                    int col = composed.getPixel(x, y);
+                    if (((col >> 24) & 0xFF) <= 16) continue;
+                    long luma = ((col >> 16) & 0xFF) + ((col >> 8) & 0xFF) + (col & 0xFF);
+                    if (handleMask != null && handleMask[y][x]) { handleLuma += luma; handleCnt++; }
+                    else { headLuma += luma; headCnt++; }
+                }
+            }
+            double headAvg = headCnt > 0 ? (headLuma / 3.0) / headCnt : 255.0;
+            double handleAvg = handleCnt > 0 ? (handleLuma / 3.0) / handleCnt : 255.0;
+
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int col = composed.getPixel(x, y);
+                    if (((col >> 24) & 0xFF) <= 16) continue;
+                    int vCol = vanilla.getPixel(x, y);
+                    if (((vCol >> 24) & 0xFF) <= 16) continue;
+                    double vLuma = ((vCol >> 16) & 0xFF) + ((vCol >> 8) & 0xFF) + (vCol & 0xFF);
+                    double ratio = Math.max(0.10, Math.min(2.50, (vLuma / 3.0) / vanillaAvg));
+                    boolean isHandle = handleMask != null && handleMask[y][x];
+                    double pieceAvg = isHandle ? handleAvg : headAvg;
+                    int r = col & 0xFF, g = (col >> 8) & 0xFF, b = (col >> 16) & 0xFF;
+                    if (pieceAvg >= DARK_PIECE_LUMA) {
+                        // bright piece: multiply by vanilla shade ratio
+                        double f = Math.max(0.55, Math.min(1.15, ratio));
+                        r = (int) Math.round(r * f);
+                        g = (int) Math.round(g * f);
+                        b = (int) Math.round(b * f);
+                    } else {
+                        // dark piece: lighten where vanilla is shaded (inverted contrast)
+                        double k = Math.max(0.0, Math.min(0.9, (1.0 - ratio) * 1.2));
+                        r = (int) Math.round(r + (255 - r) * k);
+                        g = (int) Math.round(g + (255 - g) * k);
+                        b = (int) Math.round(b + (255 - b) * k);
+                    }
+                    r = Math.max(0, Math.min(255, r));
+                    g = Math.max(0, Math.min(255, g));
+                    b = Math.max(0, Math.min(255, b));
+                    composed.setPixel(x, y, (col & 0xFF000000) | (b << 16) | (g << 8) | r);
                 }
             }
         } catch (Exception e) {
-            LOGGER.debug("applyVanillaEdgeHue failed: {}", e.toString());
+            LOGGER.debug("applyVanillaShadeTransfer failed: {}", e.toString());
         }
     }
 
@@ -447,12 +499,15 @@ public class BlendedTextureManager {
             }
         }
 
+        // Vanilla-style 1px darker hue, per piece: head and handle each get their own border
+        // (separating line at the joint, hilt band where the head meets the handle),
+        // and vanilla's special shaded regions (helmet visor band) transfer from the base sprite.
+        // NOTE: must run BEFORE baseMask.close() – the vanillaDark transfer reads the base sprite.
+        applyVanillaShadeTransfer(blended, baseMask, handleFinalMask);
+
         for (NativeImage img : headUnique.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         for (NativeImage img : handleUnique.values()) try { img.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         if (baseMask != null) try { baseMask.close(); } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
-
-        // Vanilla-style 1px darker hue on the silhouette edge, so shapes look "defined" like vanilla items
-        applyVanillaEdgeHue(blended);
 
         String hash = Integer.toHexString(key.hashCode());
         Identifier outId = Identifier.fromNamespaceAndPath("blendedcraft", "blended/" + hash);
