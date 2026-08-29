@@ -1,11 +1,11 @@
-package com.example.util;
+package com.superfurias.blendedcraft.util;
 
 import net.minecraft.core.Holder;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 
-import com.example.item.ModItems;
+import com.superfurias.blendedcraft.item.ModItems;
 
 public class FlexibleRecipeHelper {
     public static boolean isFlexibleResult(ItemStackTemplate template) {

@@ -1,4 +1,4 @@
-package com.example.item;
+package com.superfurias.blendedcraft.item;
 
 import java.util.EnumMap;
 import java.util.Map;

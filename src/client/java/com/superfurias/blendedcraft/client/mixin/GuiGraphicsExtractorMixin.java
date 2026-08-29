@@ -1,4 +1,4 @@
-package com.example.client.mixin;
+package com.superfurias.blendedcraft.client.mixin;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -15,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.client.BlendedTextureManager;
-import com.example.util.FlexibleRecipeHelper;
+import com.superfurias.blendedcraft.client.BlendedTextureManager;
+import com.superfurias.blendedcraft.util.FlexibleRecipeHelper;
 
 @Mixin(GuiGraphicsExtractor.class)
 public class GuiGraphicsExtractorMixin {

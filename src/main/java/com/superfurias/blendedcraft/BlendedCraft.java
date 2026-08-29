@@ -1,4 +1,4 @@
-package com.example;
+package com.superfurias.blendedcraft;
 
 import net.fabricmc.api.ModInitializer;
 
@@ -7,14 +7,11 @@ import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.item.ModItems;
+import com.superfurias.blendedcraft.item.ModItems;
 
-public class ExampleMod implements ModInitializer {
+public class BlendedCraft implements ModInitializer {
 	public static final String MOD_ID = "blendedcraft";
 
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	@Override
@@ -27,7 +24,7 @@ public class ExampleMod implements ModInitializer {
 				var player = handler.getPlayer();
 				server.execute(() -> {
 					try {
-						int upgraded = com.example.util.BlendedLegacyUpgrader.upgradeInventory(player);
+						int upgraded = com.superfurias.blendedcraft.util.BlendedLegacyUpgrader.upgradeInventory(player);
 						if (upgraded > 0) {
 							player.containerMenu.broadcastChanges();
 							LOGGER.info("Auto-upgraded {} old blended item(s) for {}", upgraded, player.getName().getString());
@@ -42,7 +39,7 @@ public class ExampleMod implements ModInitializer {
 			LOGGER.warn("Failed to register legacy upgrader: {}", e.toString());
 		}
 
-		LOGGER.info("Hello Fabric world! Registered test item and creative tab.");
+		LOGGER.info("BlendedCraft initialized: blended tools and armor ready.");
 	}
 
 	public static Identifier id(String path) {

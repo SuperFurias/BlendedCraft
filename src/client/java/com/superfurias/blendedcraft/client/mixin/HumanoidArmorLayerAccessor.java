@@ -1,4 +1,4 @@
-package com.example.client.mixin;
+package com.superfurias.blendedcraft.client.mixin;
 
 import net.minecraft.client.renderer.entity.ArmorModelSet;
 import net.minecraft.client.renderer.entity.layers.EquipmentLayerRenderer;

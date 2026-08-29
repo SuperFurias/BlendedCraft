@@ -1,4 +1,4 @@
-package com.example.client;
+package com.superfurias.blendedcraft.client;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -33,21 +33,26 @@ public class BlendedTextureManager {
     private static final Map<Identifier, NativeImage> IMAGE_CACHE = new ConcurrentHashMap<>();
     public static NativeImage getCachedImage(Identifier id) { return IMAGE_CACHE.get(id); }
 
-    /**
-     * Vanilla items are drawn with a ~25% darker 1px border around their silhouette,
-     * which makes the shape read clearly. This post-process replicates that on runtime
-     * composed textures: every opaque pixel touching transparency is darkened by 25%.
-     */
+    // ===================== HUE TUNING (edit these to taste) =====================
+    /** pieces whose average luma is below this are treated as dark -> they get the LIGHT hue variant */
+    public static final double DARK_PIECE_LUMA = 70.0;
+    /** bright pieces: minimum multiplier applied where the vanilla sprite is shaded (lower = stronger dark hue) */
+    public static final double BRIGHT_HUE_MIN = 0.55;
+    /** bright pieces: maximum multiplier applied where the vanilla sprite is bright (higher = brighter highlights) */
+    public static final double BRIGHT_HUE_MAX = 1.15;
+    /** dark pieces: brightness ADDED on vanilla-highlight pixels (rim light so the hue shows on near-black items) */
+    public static final int DARK_HUE_STRENGTH = 27;
+    /** dark pieces: per-channel brightness cap for the rim light */
+    public static final int DARK_HUE_CAP = 130;
+    // ============================================================================
+
     /**
      * Transfers vanilla's own per-pixel shading pattern (borders, guard bevels, helmet visor band,
      * blade highlights) from the vanilla sprite onto the composed texture, positionally exact.
-     * Adaptive per piece: bright pieces are multiplied by the vanilla shade ratio (dark where vanilla
-     * is dark, bright where vanilla is bright); dark pieces (e.g. a black sword) get the inverted,
-     * additive variant so their hue becomes LIGHTER where vanilla is shaded.
+     * Both bright and dark pieces keep vanilla's shading DIRECTION (top-left highlights, bottom-right
+     * shadows); dark pieces additionally get a light rim on vanilla-highlight pixels so the hue stays
+     * evident on near-black items. No direction flipping – shadows always read as shadows.
      */
-    /** pieces with average luma below this are considered dark -> their hue becomes lighter instead of darker */
-    private static final double DARK_PIECE_LUMA = 70.0;
-
     public static void applyVanillaShadeTransfer(NativeImage composed, NativeImage vanilla, boolean[][] handleMask) {
         try {
             int w = composed.getWidth();
@@ -96,16 +101,24 @@ public class BlendedTextureManager {
                     int r = col & 0xFF, g = (col >> 8) & 0xFF, b = (col >> 16) & 0xFF;
                     if (pieceAvg >= DARK_PIECE_LUMA) {
                         // bright piece: multiply by vanilla shade ratio
-                        double f = Math.max(0.55, Math.min(1.15, ratio));
+                        double f = Math.max(BRIGHT_HUE_MIN, Math.min(BRIGHT_HUE_MAX, ratio));
                         r = (int) Math.round(r * f);
                         g = (int) Math.round(g * f);
                         b = (int) Math.round(b * f);
                     } else {
-                        // dark piece: lighten where vanilla is shaded (inverted contrast)
-                        double k = Math.max(0.0, Math.min(0.9, (1.0 - ratio) * 1.2));
-                        r = (int) Math.round(r + (255 - r) * k);
-                        g = (int) Math.round(g + (255 - g) * k);
-                        b = (int) Math.round(b + (255 - b) * k);
+                        // dark piece: SAME shading direction as bright items (top-left highlights, bottom-right
+                        // shadows), so the vanilla light/dark geometry is preserved and shadows get darker;
+                        // on top of that, vanilla-highlight pixels get an additive light rim so the hue stays
+                        // evident on near-black items without flipping the shading upside down
+                        double f = Math.max(BRIGHT_HUE_MIN, Math.min(BRIGHT_HUE_MAX, ratio));
+                        r = (int) Math.round(r * f);
+                        g = (int) Math.round(g * f);
+                        b = (int) Math.round(b * f);
+                        double k = Math.max(0.0, Math.min(1.0, ratio - 1.0));
+                        int add = (int) Math.round(DARK_HUE_STRENGTH * k);
+                        r = Math.min(r + add, Math.max(r, DARK_HUE_CAP));
+                        g = Math.min(g + add, Math.max(g, DARK_HUE_CAP));
+                        b = Math.min(b + add, Math.max(b, DARK_HUE_CAP));
                     }
                     r = Math.max(0, Math.min(255, r));
                     g = Math.max(0, Math.min(255, g));
@@ -617,10 +630,13 @@ public class BlendedTextureManager {
                 String base = path.substring(0, path.length() - 5);
                 alts.add(base + "_planks");
                 alts.add(base);
-            } else if (path.endsWith("_sign")) {
+            } else             if (path.endsWith("_sign")) {
                 String base = path.substring(0, path.length() - 5);
                 alts.add(base + "_planks");
                 alts.add(base);
+            } else if (path.endsWith("_block")) {
+                // e.g. magma_block -> texture is block/magma.png
+                alts.add(path.substring(0, path.length() - 6));
             }
             for (String altPath : alts) {
                 String altId = ns + ":" + altPath;
@@ -644,15 +660,10 @@ public class BlendedTextureManager {
             if (res.isEmpty()) return null;
             try (InputStream in = res.get().open()) {
                 NativeImage img = NativeImage.read(in);
-                if (img.getWidth() != 16 || img.getHeight() != 16) {
-                    NativeImage scaled = new NativeImage(16, 16, false);
-                    for (int yy = 0; yy < 16; yy++) for (int xx = 0; xx < 16; xx++) {
-                        int srcX = xx * img.getWidth() / 16;
-                        int srcY = yy * img.getHeight() / 16;
-                        scaled.setPixel(xx, yy, img.getPixel(srcX, srcY));
-                    }
+                NativeImage normalized = normalizeTexture(img);
+                if (normalized != img) {
                     img.close();
-                    return scaled;
+                    return normalized;
                 }
                 return img;
             }
@@ -660,6 +671,34 @@ public class BlendedTextureManager {
             LOGGER.debug("Failed to load texture for {}: {}", idStr, e.toString());
             return null;
         }
+    }
+
+    /**
+     * Animated block textures (magma, sea lantern, prismarine, fire...) are vertical frame strips
+     * (e.g. 16x512). Take the FIRST frame instead of squeezing all frames together, which produced
+     * garbled colors. Non-square odd sizes keep the old squeeze behavior.
+     */
+    private static NativeImage normalizeTexture(NativeImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        if (w == 16 && h == 16) return img;
+        if (h > w && h % w == 0) {
+            // vertical animation strip -> first frame
+            NativeImage frame = new NativeImage(w, w, false);
+            for (int y = 0; y < w; y++) for (int x = 0; x < w; x++) frame.setPixel(x, y, img.getPixel(x, y));
+            return frame;
+        }
+        if (w > h && w % h == 0) {
+            // horizontal strip -> first frame
+            NativeImage frame = new NativeImage(h, h, false);
+            for (int y = 0; y < h; y++) for (int x = 0; x < h; x++) frame.setPixel(x, y, img.getPixel(x, y));
+            return frame;
+        }
+        NativeImage scaled = new NativeImage(16, 16, false);
+        for (int yy = 0; yy < 16; yy++) for (int xx = 0; xx < 16; xx++) {
+            scaled.setPixel(xx, yy, img.getPixel(xx * w / 16, yy * h / 16));
+        }
+        return scaled;
     }
 
     private static int[] computeBbox(NativeImage img) {

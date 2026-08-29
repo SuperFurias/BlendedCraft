@@ -1,4 +1,4 @@
-package com.example.util;
+package com.superfurias.blendedcraft.util;
 
 import java.util.List;
 

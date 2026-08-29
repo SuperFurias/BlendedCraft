@@ -1,4 +1,4 @@
-package com.example.client.model;
+package com.superfurias.blendedcraft.client.model;
 
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.item.ItemModel;

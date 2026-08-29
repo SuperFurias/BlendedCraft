@@ -1,4 +1,4 @@
-package com.example.item;
+package com.superfurias.blendedcraft.item;
 
 import java.util.function.Function;
 
@@ -14,7 +14,7 @@ import net.minecraft.world.item.equipment.ArmorType;
 
 import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 
-import com.example.ExampleMod;
+import com.superfurias.blendedcraft.BlendedCraft;
 
 public class ModItems {
 
@@ -40,14 +40,14 @@ public class ModItems {
     public static final Item BLENDED_HOE = register(ModItemIds.BLENDED_HOE, Item::new,
             new Item.Properties().hoe(net.minecraft.world.item.ToolMaterial.WOOD, 0f, -3.0f));
 
-    public static final ResourceKey<CreativeModeTab> TEST_TAB_KEY = ResourceKey.create(
+    public static final ResourceKey<CreativeModeTab> CREATIVE_TAB_KEY = ResourceKey.create(
             BuiltInRegistries.CREATIVE_MODE_TAB.key(),
-            Identifier.fromNamespaceAndPath(ExampleMod.MOD_ID, "test_tab")
+            Identifier.fromNamespaceAndPath(BlendedCraft.MOD_ID, "creative_tab")
     );
 
-    public static final CreativeModeTab TEST_TAB = FabricCreativeModeTab.builder()
+    public static final CreativeModeTab CREATIVE_TAB = FabricCreativeModeTab.builder()
             .icon(() -> new ItemStack(ModItems.BLENDED_PICKAXE))
-            .title(Component.translatable("itemGroup.blendedcraft.test"))
+            .title(Component.translatable("itemGroup.blendedcraft.main"))
             .displayItems((params, output) -> {
                 output.accept(ModItems.BLENDED_HELMET);
                 output.accept(ModItems.BLENDED_CHESTPLATE);
@@ -68,7 +68,7 @@ public class ModItems {
     }
 
     public static void initialize() {
-        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, TEST_TAB_KEY, TEST_TAB);
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, CREATIVE_TAB_KEY, CREATIVE_TAB);
     }
 }
 

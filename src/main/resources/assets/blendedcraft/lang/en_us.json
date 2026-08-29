@@ -1,5 +1,4 @@
 {
-  "item.blendedcraft.test": "Test",
   "item.blendedcraft.blended_helmet": "Blended Helmet",
   "item.blendedcraft.blended_chestplate": "Blended Chestplate",
   "item.blendedcraft.blended_leggings": "Blended Leggings",
@@ -9,7 +8,6 @@
   "item.blendedcraft.blended_shovel": "Blended Shovel",
   "item.blendedcraft.blended_sword": "Blended Sword",
   "item.blendedcraft.blended_hoe": "Blended Hoe",
-  "itemGroup.blendedcraft.test": "Test Items",
-  "creativeTab.blendedcraft.test": "Test Items"
+  "itemGroup.blendedcraft.main": "BlendedCraft"
 }
 

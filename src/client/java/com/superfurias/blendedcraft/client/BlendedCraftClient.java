@@ -1,4 +1,4 @@
-package com.example.client;
+package com.superfurias.blendedcraft.client;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
@@ -9,12 +9,12 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.component.CustomData;
 import org.lwjgl.glfw.GLFW;
-import com.example.util.FlexibleRecipeHelper;
+import com.superfurias.blendedcraft.util.FlexibleRecipeHelper;
 
-public class ExampleModClient implements ClientModInitializer {
+public class BlendedCraftClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		com.example.client.model.BlendedModelRegistration.register();
+		com.superfurias.blendedcraft.client.model.BlendedModelRegistration.register();
 		ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
 			if (stack.isEmpty()) return;
 			if (!FlexibleRecipeHelper.isFlexibleResult(stack)) return;

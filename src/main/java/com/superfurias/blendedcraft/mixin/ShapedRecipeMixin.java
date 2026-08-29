@@ -1,4 +1,4 @@
-package com.example.mixin;
+package com.superfurias.blendedcraft.mixin;
 
 import java.util.Optional;
 
@@ -35,8 +35,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.util.BlendedStatsHelper;
-import com.example.util.FlexibleRecipeHelper;
+import com.superfurias.blendedcraft.util.BlendedStatsHelper;
+import com.superfurias.blendedcraft.util.FlexibleRecipeHelper;
 
 @Mixin(ShapedRecipe.class)
 public class ShapedRecipeMixin {
@@ -289,7 +289,7 @@ public class ShapedRecipeMixin {
             } catch (Exception ex2) { LOGGER.warn("Failed to set custom name: {}", ex2.toString(), ex2); }
             // Fix stats: handle influences swing speed/durability, head influences mining/attack/durability
             try {
-                if (!headStacks.isEmpty() && modified.get(DataComponents.TOOL) != null || modified.get(DataComponents.WEAPON) != null || com.example.util.FlexibleRecipeHelper.isFlexibleResult(modified)) {
+                if (!headStacks.isEmpty() && modified.get(DataComponents.TOOL) != null || modified.get(DataComponents.WEAPON) != null || com.superfurias.blendedcraft.util.FlexibleRecipeHelper.isFlexibleResult(modified)) {
                     // Compute head and handle stats separately
                     var headStats = averageStatsForList(headStacks);
                     var handleStats = handleStacks.isEmpty() ? headStats : averageStatsForList(handleStacks);
@@ -479,20 +479,20 @@ public class ShapedRecipeMixin {
     }
 
     private float getHardnessForMixin(net.minecraft.world.item.Item item) {
-        return com.example.util.BlendedStatsHelper.getHardnessForItem(item);
+        return com.superfurias.blendedcraft.util.BlendedStatsHelper.getHardnessForItem(item);
     }
 
     private int getDurabilityForMixin(net.minecraft.world.item.Item item) {
-        return com.example.util.BlendedStatsHelper.statsForItem(item).durability();
+        return com.superfurias.blendedcraft.util.BlendedStatsHelper.statsForItem(item).durability();
     }
 
-    private com.example.util.BlendedStatsHelper.MaterialStats averageStatsForList(java.util.List<ItemStack> list) {
-        return com.example.util.BlendedStatsHelper.averageStatsForStacks(list);
+    private com.superfurias.blendedcraft.util.BlendedStatsHelper.MaterialStats averageStatsForList(java.util.List<ItemStack> list) {
+        return com.superfurias.blendedcraft.util.BlendedStatsHelper.averageStatsForStacks(list);
     }
 
     @SuppressWarnings("unused")
-    private com.example.util.BlendedStatsHelper.MaterialStats getStatsForMixin(net.minecraft.world.item.Item item) {
-        return com.example.util.BlendedStatsHelper.statsForItem(item);
+    private com.superfurias.blendedcraft.util.BlendedStatsHelper.MaterialStats getStatsForMixin(net.minecraft.world.item.Item item) {
+        return com.superfurias.blendedcraft.util.BlendedStatsHelper.statsForItem(item);
     }
 
     private boolean isSingleMaterialList(java.util.List<ItemStack> list) {
@@ -513,7 +513,7 @@ public class ShapedRecipeMixin {
         return formatMat(base);
     }
 
-    private void fixToolForHead(ItemStack stack, com.example.util.BlendedStatsHelper.MaterialStats headStats, java.util.List<ItemStack> headStacks, java.util.List<ItemStack> handleStacks) {
+    private void fixToolForHead(ItemStack stack, com.superfurias.blendedcraft.util.BlendedStatsHelper.MaterialStats headStats, java.util.List<ItemStack> headStacks, java.util.List<ItemStack> handleStacks) {
         try {
             String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
             String type = path.startsWith("blended_") ? path.substring(8) : path;
@@ -561,7 +561,7 @@ public class ShapedRecipeMixin {
         }
     }
 
-    private ToolMaterial selectTierMaterialForMixin(java.util.List<ItemStack> headStacks, com.example.util.BlendedStatsHelper.MaterialStats headStats) {
+    private ToolMaterial selectTierMaterialForMixin(java.util.List<ItemStack> headStacks, com.superfurias.blendedcraft.util.BlendedStatsHelper.MaterialStats headStats) {
         try {
             java.util.Map<String, Integer> counts = new java.util.HashMap<>();
             java.util.Map<String, net.minecraft.world.item.Item> itemMap = new java.util.HashMap<>();
@@ -579,8 +579,8 @@ public class ShapedRecipeMixin {
                 String best = null; float bestHard = -1; int bestDur = -1;
                 for (String cand : cands) {
                     net.minecraft.world.item.Item it = itemMap.get(cand);
-                    float hard = com.example.util.BlendedStatsHelper.getHardnessForItem(it);
-                    int dur = com.example.util.BlendedStatsHelper.statsForItem(it).durability();
+                    float hard = com.superfurias.blendedcraft.util.BlendedStatsHelper.getHardnessForItem(it);
+                    int dur = com.superfurias.blendedcraft.util.BlendedStatsHelper.statsForItem(it).durability();
                     if (hard > bestHard || (hard == bestHard && dur > bestDur)) { bestHard = hard; bestDur = dur; best = cand; }
                 }
                 if (best != null) dominant = itemMap.get(best);
@@ -591,7 +591,7 @@ public class ShapedRecipeMixin {
             for (ItemStack s : headStacks) {
                 ToolMaterial m = getToolMaterialForMixin(s.getItem());
                 if (m == null) {
-                    float hard = com.example.util.BlendedStatsHelper.getHardnessForItem(s.getItem());
+                    float hard = com.superfurias.blendedcraft.util.BlendedStatsHelper.getHardnessForItem(s.getItem());
                     if (hard >= 50f) m = ToolMaterial.NETHERITE;
                     else if (hard >= 5f) m = ToolMaterial.DIAMOND;
                     else if (hard >= 3f) m = ToolMaterial.IRON;
@@ -613,7 +613,7 @@ public class ShapedRecipeMixin {
     }
 
     private ToolMaterial getToolMaterialForMixin(net.minecraft.world.item.Item item) {
-        return com.example.util.BlendedStatsHelper.getToolMaterialForItem(item);
+        return com.superfurias.blendedcraft.util.BlendedStatsHelper.getToolMaterialForItem(item);
     }
 
     private ItemStack getVanillaTemplateForMixin(String type, ToolMaterial tier) {

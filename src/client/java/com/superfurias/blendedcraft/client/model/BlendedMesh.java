@@ -1,4 +1,4 @@
-package com.example.client.model;
+package com.superfurias.blendedcraft.client.model;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;

@@ -1,4 +1,4 @@
-package com.example.client;
+package com.superfurias.blendedcraft.client;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -303,10 +303,13 @@ public class BlendedArmorTextureManager {
                 String base = path.substring(0, path.length() - 5);
                 alts.add(base + "_planks");
                 alts.add(base);
-            } else if (path.endsWith("_sign")) {
+            } else             if (path.endsWith("_sign")) {
                 String base = path.substring(0, path.length() - 5);
                 alts.add(base + "_planks");
                 alts.add(base);
+            } else if (path.endsWith("_block")) {
+                // e.g. magma_block -> texture is block/magma.png
+                alts.add(path.substring(0, path.length() - 6));
             }
             for (String altPath : alts) {
                 String altId = ns + ":" + altPath;
@@ -330,10 +333,10 @@ public class BlendedArmorTextureManager {
             if (res.isEmpty()) return null;
             try (InputStream in = res.get().open()) {
                 NativeImage img = NativeImage.read(in);
-                if (img.getWidth() != 16 || img.getHeight() != 16) {
-                    NativeImage scaled = new NativeImage(16, 16, false);
-                    for (int yy = 0; yy < 16; yy++) for (int xx = 0; xx < 16; xx++) scaled.setPixel(xx, yy, img.getPixel(xx * img.getWidth() / 16, yy * img.getHeight() / 16));
-                    img.close(); return scaled;
+                NativeImage normalized = normalizeTexture(img);
+                if (normalized != img) {
+                    img.close();
+                    return normalized;
                 }
                 return img;
             }
@@ -341,6 +344,34 @@ public class BlendedArmorTextureManager {
             LOGGER.debug("Failed to load armor mat {}: {}", idStr, e.toString());
             return null;
         }
+    }
+
+    /**
+     * Animated block textures (magma, sea lantern, prismarine, fire...) are vertical frame strips
+     * (e.g. 16x512). Take the FIRST frame instead of squeezing all frames together, which produced
+     * garbled colors. Non-square odd sizes keep the old squeeze behavior.
+     */
+    private static NativeImage normalizeTexture(NativeImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        if (w == 16 && h == 16) return img;
+        if (h > w && h % w == 0) {
+            // vertical animation strip -> first frame
+            NativeImage frame = new NativeImage(w, w, false);
+            for (int y = 0; y < w; y++) for (int x = 0; x < w; x++) frame.setPixel(x, y, img.getPixel(x, y));
+            return frame;
+        }
+        if (w > h && w % h == 0) {
+            // horizontal strip -> first frame
+            NativeImage frame = new NativeImage(h, h, false);
+            for (int y = 0; y < h; y++) for (int x = 0; x < h; x++) frame.setPixel(x, y, img.getPixel(x, y));
+            return frame;
+        }
+        NativeImage scaled = new NativeImage(16, 16, false);
+        for (int yy = 0; yy < 16; yy++) for (int xx = 0; xx < 16; xx++) {
+            scaled.setPixel(xx, yy, img.getPixel(xx * w / 16, yy * h / 16));
+        }
+        return scaled;
     }
 
     private static int[] computeBbox(NativeImage img) {

@@ -1,9 +1,8 @@
 {
 	"required": true,
-	"package": "com.example.client.mixin",
+	"package": "com.superfurias.blendedcraft.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ExampleClientMixin",
 		"GuiGraphicsExtractorMixin",
 		"HumanoidArmorLayerMixin",
 		"HumanoidArmorLayerAccessor",

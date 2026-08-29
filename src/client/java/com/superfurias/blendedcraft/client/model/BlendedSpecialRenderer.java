@@ -1,6 +1,6 @@
-package com.example.client.model;
+package com.superfurias.blendedcraft.client.model;
 
-import com.example.client.BlendedTextureManager;
+import com.superfurias.blendedcraft.client.BlendedTextureManager;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;

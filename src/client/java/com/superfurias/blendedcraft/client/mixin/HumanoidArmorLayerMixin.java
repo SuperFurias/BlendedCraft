@@ -1,4 +1,4 @@
-package com.example.client.mixin;
+package com.superfurias.blendedcraft.client.mixin;
 
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
@@ -15,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.example.client.BlendedArmorTextureManager;
-import com.example.util.FlexibleRecipeHelper;
+import com.superfurias.blendedcraft.client.BlendedArmorTextureManager;
+import com.superfurias.blendedcraft.util.FlexibleRecipeHelper;
 import net.minecraft.client.model.HumanoidModel;
 
 @Mixin(HumanoidArmorLayer.class)

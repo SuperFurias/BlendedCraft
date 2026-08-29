@@ -1,4 +1,4 @@
-package com.example.mixin;
+package com.superfurias.blendedcraft.mixin;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.component.PatchedDataComponentMap;
@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.example.util.BlendedLegacyUpgrader;
+import com.superfurias.blendedcraft.util.BlendedLegacyUpgrader;
 
 @Mixin(ItemStack.class)
 public abstract class ItemStackMixin {

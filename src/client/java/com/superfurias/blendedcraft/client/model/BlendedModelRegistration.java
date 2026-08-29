@@ -1,6 +1,6 @@
-package com.example.client.model;
+package com.superfurias.blendedcraft.client.model;
 
-import com.example.client.mixin.CuboidItemModelWrapperAccessor;
+import com.superfurias.blendedcraft.client.mixin.CuboidItemModelWrapperAccessor;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.minecraft.client.renderer.item.ModelRenderProperties;
 import net.minecraft.resources.Identifier;
