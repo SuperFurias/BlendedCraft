@@ -44,4 +44,4 @@ build-background.bat
 build-watcher.ps1
 run-minecraft.bat
 Temp/
-com/
+/com/
