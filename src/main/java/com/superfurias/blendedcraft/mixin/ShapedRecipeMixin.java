@@ -328,6 +328,11 @@ public class ShapedRecipeMixin {
                     }
                 }
             } catch (Exception ex3) { LOGGER.warn("Failed to apply head/handle stats: {}", ex3.toString(), ex3); }
+            // Material traits: built-in perks from special materials (slime knockback, lapis fortune, ...)
+            try {
+                java.util.List<ItemStack> traitSources = headStacks.isEmpty() ? allStacks(input) : headStacks;
+                com.superfurias.blendedcraft.util.MaterialEffects.applyToStack(modified, traitSources);
+            } catch (Exception ex4) { LOGGER.warn("Failed to apply material traits: {}", ex4.toString(), ex4); }
         } catch (Exception ex) {
             LOGGER.error("Failed to apply blended stats in assemble", ex);
         }

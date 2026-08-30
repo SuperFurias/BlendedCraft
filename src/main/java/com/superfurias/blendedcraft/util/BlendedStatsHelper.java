@@ -571,15 +571,22 @@ public class BlendedStatsHelper {
             boolean isTool = result.get(DataComponents.TOOL) != null || result.get(DataComponents.WEAPON) != null;
 
             boolean hasBedrock = false;
+            int ingredientCount = 0;
+            int netherStarCount = 0;
             for (ItemStack s : input.items()) {
                 if (s.isEmpty()) continue;
+                ingredientCount++;
                 Item it = s.getItem();
                 String path = BuiltInRegistries.ITEM.getKey(it).getPath();
                 if (it == Items.BEDROCK || it == Blocks.BEDROCK.asItem() || path.contains("bedrock")) {
                     hasBedrock = true;
-                    break;
+                }
+                if (path.equals("nether_star")) {
+                    netherStarCount++;
                 }
             }
+            // Full nether star = unbreakable (like full bedrock). Blended = normal durability.
+            boolean fullNetherStar = ingredientCount > 0 && netherStarCount >= ingredientCount;
 
             if (isArmor) {
                 int totalDefense = 0;
@@ -636,7 +643,7 @@ public class BlendedStatsHelper {
                         builder.add(Attributes.KNOCKBACK_RESISTANCE, new AttributeModifier(id, avgKB, AttributeModifier.Operation.ADD_VALUE), group);
                     }
                     result.set(DataComponents.ATTRIBUTE_MODIFIERS, builder.build());
-                    if (hasBedrock) {
+                    if (hasBedrock || fullNetherStar) {
                         result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
                     }
                     try {
@@ -691,7 +698,7 @@ public class BlendedStatsHelper {
                 else result.set(DataComponents.SWING_ANIMATION, new SwingAnimation(SwingAnimationType.WHACK, 6));
                 var vRepair = vanillaCopy.get(DataComponents.REPAIRABLE);
                 if (vRepair != null) result.set(DataComponents.REPAIRABLE, vRepair);
-                if (hasBedrock) result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
+                if (hasBedrock || fullNetherStar) result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
                 // Ensure whack for tools if not already set
                 if (result.get(DataComponents.SWING_ANIMATION) == null) {
                     result.set(DataComponents.SWING_ANIMATION, new SwingAnimation(SwingAnimationType.WHACK, 6));
@@ -700,7 +707,7 @@ public class BlendedStatsHelper {
                 result.set(DataComponents.MAX_DAMAGE, avg.durability());
                 result.set(DataComponents.DAMAGE, 0);
                 result.set(DataComponents.ENCHANTABLE, new Enchantable(avg.enchantability()));
-                if (hasBedrock) {
+                if (hasBedrock || fullNetherStar) {
                     result.set(DataComponents.UNBREAKABLE, Unit.INSTANCE);
                 }
                 // Fix tool correctly (head speed, proper mineable tag, default 1.0)

@@ -44,6 +44,11 @@ public abstract class ItemStackMixin {
     @Inject(method = "set", at = @At("RETURN"))
     private <T> void onSetComponent(net.minecraft.core.component.DataComponentType<T> type, T value, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<T> cir) {
         if (BLENDED_UPDATING.get()) return;
+        // Only react to component changes that can affect stats; skip hot paths like DAMAGE (durability),
+        // which would otherwise re-run the upgrader on every hit / block break
+        if (type != net.minecraft.core.component.DataComponents.CUSTOM_DATA
+                && type != net.minecraft.core.component.DataComponents.TOOL
+                && type != net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS) return;
         try {
             ItemStack self = (ItemStack) (Object) this;
             if (self.isEmpty()) return;
@@ -55,7 +60,7 @@ public abstract class ItemStackMixin {
                 var tool = self.get(DataComponents.TOOL);
                 boolean needsFix = false;
                 if (tool != null && Math.abs(tool.defaultMiningSpeed() - 1.0f) > 0.01f) needsFix = true;
-                else {
+                else if (type != net.minecraft.core.component.DataComponents.CUSTOM_DATA) {
                     var attrs = self.get(DataComponents.ATTRIBUTE_MODIFIERS);
                     if (attrs != null) {
                         needsFix = true;

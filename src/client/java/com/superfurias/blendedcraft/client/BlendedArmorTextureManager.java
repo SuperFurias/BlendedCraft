@@ -311,6 +311,11 @@ public class BlendedArmorTextureManager {
                 // e.g. magma_block -> texture is block/magma.png
                 alts.add(path.substring(0, path.length() - 6));
             }
+            // Multi-part block textures: most blocks (cactus, grass, pumpkin, ...) have no
+            // textures/block/<name>.png - their sprite is <name>_side (or _top). Trying the
+            // side texture keeps the ingredient's real look instead of a random fallback color.
+            alts.add(path + "_side");
+            alts.add(path + "_top");
             for (String altPath : alts) {
                 String altId = ns + ":" + altPath;
                 NativeImage altImg = tryLoadTexture(altId, rm);

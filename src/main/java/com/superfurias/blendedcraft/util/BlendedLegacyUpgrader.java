@@ -335,6 +335,54 @@ public class BlendedLegacyUpgrader {
             }
         } catch (Exception e) { LOGGER.warn("Failed to fix armor for {}: {}", BuiltInRegistries.ITEM.getKey(stack.getItem()), e.toString()); }
 
+        // 3c) Backward compat: apply material traits (slime knockback, lapis fortune, ...) to items crafted before 1.6.0
+        // NOTE: "blended_effects" is a LIST tag written by MaterialEffects.writeEffects; a non-empty list is the
+        // "already applied" marker. Do NOT write the stale newTag copy back here - doing that with a boolean flag
+        // under the same key used to replace the trait list and silently wiped ALL effects on every stack load.
+        try {
+            if (newTag.getListOrEmpty("blended_effects").isEmpty() || MaterialEffects.hasNonApplicableTraits(stack)) {
+                java.util.List<ItemStack> traitSources = new java.util.ArrayList<>();
+                ListTag headForTraits = newTag.getListOrEmpty("blended_head");
+                for (int i = 0; i < headForTraits.size(); i++) {
+                    String idStr = headForTraits.getString(i).orElse("");
+                    if (idStr.isEmpty()) continue;
+                    Identifier tid = Identifier.parse(idStr);
+                    Item tit = BuiltInRegistries.ITEM.getValue(tid);
+                    if (tit != null && tit != Items.AIR) traitSources.add(new ItemStack(tit));
+                }
+                if (traitSources.isEmpty()) {
+                    ListTag allForTraits = newTag.getListOrEmpty("blended_ingredients");
+                    for (int i = 0; i < allForTraits.size(); i++) {
+                        String idStr = allForTraits.getString(i).orElse("");
+                        if (idStr.isEmpty()) continue;
+                        Identifier tid = Identifier.parse(idStr);
+                        Item tit = BuiltInRegistries.ITEM.getValue(tid);
+                        if (tit != null && tit != Items.AIR) traitSources.add(new ItemStack(tit));
+                    }
+                }
+                if (!traitSources.isEmpty()) {
+                    // Re-apply from scratch: clears the list first so misassigned traits
+                    // (e.g. auto-smelt on swords, fire aspect on armor) are removed
+                    MaterialEffects.writeEffects(stack, new java.util.HashMap<>());
+                    MaterialEffects.applyToStack(stack, traitSources);
+                    changed = true;
+                }
+            }
+            // Always resync attribute-backed traits (slime bounce etc.) with the trait list
+            MaterialEffects.syncAttributeModifiers(stack);
+            // Backward compat: old items can carry stale emerald trait levels
+            // (e.g. Looting II / Fortune II from the piece-count era). Normalize:
+            // full emerald hand tool -> 3, blended -> 1.
+            if (MaterialEffects.normalizeEmeraldTrait(stack)) changed = true;
+            // Backward compat: re-level ALL multi-level traits with the current rule
+            // (full material -> vanilla max, blended -> 1). Fixes e.g. Feather Falling 3
+            // on full-feather boots (should be 4) and any level-2 intermediates.
+            if (MaterialEffects.normalizeTraitLevels(stack)) changed = true;
+            // Backward compat: full nether star items from before the unbreakable rule
+            // get UNBREAKABLE applied on load (blended nether star stays breakable).
+            if (applyLegacyNetherStarUnbreakable(stack, newTag)) changed = true;
+        } catch (Exception e) { LOGGER.warn("Failed to apply material traits for {}: {}", BuiltInRegistries.ITEM.getKey(stack.getItem()), e.toString()); }
+
         // 4) Cleanup: remove ugly Mining Speed lore that was added by previous buggy fix (inside Temp folder is now forbidden, so we don't create outside files)
         try {
             var lore = stack.get(DataComponents.LORE);
@@ -366,6 +414,37 @@ public class BlendedLegacyUpgrader {
         } catch (Exception e) { LOGGER.warn("Failed to cleanup lore for {}: {}", BuiltInRegistries.ITEM.getKey(stack.getItem()), e.toString()); }
 
         return changed;
+    }
+
+    /**
+     * Backward compat: items crafted as FULL nether star before the unbreakable
+     * rule existed get UNBREAKABLE applied on load. Blended nether star items
+     * are left alone (they stay breakable). Returns true if the stack changed.
+     */
+    private static boolean applyLegacyNetherStarUnbreakable(ItemStack stack, CompoundTag tag) {
+        try {
+            String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+            if (!path.startsWith("blended_")) return false;
+            if (stack.has(DataComponents.UNBREAKABLE)) return false;
+            ListTag source = tag.getListOrEmpty("blended_head");
+            if (source.isEmpty()) source = tag.getListOrEmpty("blended_ingredients");
+            if (source.isEmpty()) return false;
+            int stars = 0;
+            int total = 0;
+            for (int i = 0; i < source.size(); i++) {
+                String idStr = source.getString(i).orElse("");
+                if (idStr.isEmpty()) continue;
+                total++;
+                if (idStr.equals("minecraft:nether_star")) stars++;
+            }
+            if (total == 0 || stars < total) return false;
+            stack.set(DataComponents.UNBREAKABLE, net.minecraft.util.Unit.INSTANCE);
+            LOGGER.info("Applied legacy nether star unbreakable to {}", path);
+            return true;
+        } catch (Exception e) {
+            LOGGER.warn("Failed legacy nether star check for {}: {}", BuiltInRegistries.ITEM.getKey(stack.getItem()), e.toString());
+            return false;
+        }
     }
 
     private static boolean upgradeToolComponent(ItemStack stack, CompoundTag tag) {

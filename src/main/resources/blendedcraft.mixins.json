@@ -4,7 +4,10 @@
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
 		"ShapedRecipeMixin",
-		"ItemStackMixin"
+		"ItemStackMixin",
+		"LivingEntityMixin",
+		"BlockMixin",
+		"BouncinessMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

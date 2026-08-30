@@ -18,6 +18,13 @@ public class BlendedCraft implements ModInitializer {
 	public void onInitialize() {
 		ModItems.initialize();
 
+		// Material traits: apply held/worn effect traits every tick
+		try {
+			net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> com.superfurias.blendedcraft.util.MaterialEffects.tick(server));
+		} catch (Exception e) {
+			LOGGER.warn("Failed to register material trait tick handler: {}", e.toString());
+		}
+
 		// Backward compatibility: upgrade old blended items on player login (once, low overhead)
 		try {
 			net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

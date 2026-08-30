@@ -638,6 +638,11 @@ public class BlendedTextureManager {
                 // e.g. magma_block -> texture is block/magma.png
                 alts.add(path.substring(0, path.length() - 6));
             }
+            // Multi-part block textures: most blocks (cactus, grass, pumpkin, ...) have no
+            // textures/block/<name>.png - their sprite is <name>_side (or _top). Trying the
+            // side texture keeps the ingredient's real look instead of a random fallback color.
+            alts.add(path + "_side");
+            alts.add(path + "_top");
             for (String altPath : alts) {
                 String altId = ns + ":" + altPath;
                 NativeImage altImg = tryLoadTexture(altId, rm);
@@ -646,8 +651,65 @@ public class BlendedTextureManager {
                     return altImg;
                 }
             }
+
+            // Mob heads (wither_skeleton_skull, zombie_head, ...) have no item texture at all:
+            // their look comes from entity skins (textures/entity/<family>/<mob>.png). Sampling
+            // the skin gives the head's real colors instead of a random fallback.
+            String headSkin = resolveHeadSkinTexture(path);
+            if (headSkin != null) {
+                Identifier skinId = Identifier.fromNamespaceAndPath("minecraft", headSkin);
+                Optional<Resource> skinRes = rm.getResource(skinId);
+                if (skinRes.isPresent()) {
+                    try (InputStream in = skinRes.get().open()) {
+                        NativeImage img = NativeImage.read(in);
+                        NativeImage normalized = normalizeTexture(img);
+                        if (normalized != img) img.close();
+                        LOGGER.debug("Resolved head texture for {} -> {}", idStr, skinId);
+                        return normalized;
+                    } catch (Exception e) {
+                        LOGGER.debug("Head skin load failed for {}: {}", idStr, e.toString());
+                    }
+                }
+            }
+
+            // Compasses (compass, recovery_compass) have no base item texture - the atlas
+            // composes them from compass_00..31 / recovery_compass_00..31 frames. Using the
+            // north-pointing frame (00) as the representative texture.
+            if (path.equals("compass") || path.equals("recovery_compass")) {
+                Identifier frameId = Identifier.fromNamespaceAndPath("minecraft", "textures/item/" + path + "_00.png");
+                Optional<Resource> frameRes = rm.getResource(frameId);
+                if (frameRes.isPresent()) {
+                    try (InputStream in = frameRes.get().open()) {
+                        NativeImage img = NativeImage.read(in);
+                        NativeImage normalized = normalizeTexture(img);
+                        if (normalized != img) img.close();
+                        LOGGER.debug("Resolved compass texture for {} -> {}", idStr, frameId);
+                        return normalized;
+                    } catch (Exception e) {
+                        LOGGER.debug("Compass frame load failed for {}: {}", idStr, e.toString());
+                    }
+                }
+            }
         } catch (Exception ignored) { LOGGER.trace("Ignored", ignored); }
         return null;
+    }
+
+    /**
+     * Maps head item ids to the entity skin texture that visually represents the head.
+     * Sampling the full skin is fine for patchwork: the sampler averages the sampled
+     * area, and mob skins are predominantly the head's colors at the top rows.
+     */
+    private static String resolveHeadSkinTexture(String path) {
+        return switch (path) {
+            case "wither_skeleton_skull" -> "textures/entity/skeleton/wither_skeleton.png";
+            case "skeleton_skull" -> "textures/entity/skeleton/skeleton.png";
+            case "zombie_head" -> "textures/entity/zombie/zombie.png";
+            case "creeper_head" -> "textures/entity/creeper/creeper.png";
+            case "dragon_head" -> "textures/entity/enderdragon/dragon.png";
+            case "piglin_head" -> "textures/entity/piglin/piglin.png";
+            case "player_head" -> "textures/entity/player/wide/steve.png";
+            default -> null;
+        };
     }
 
     private static NativeImage tryLoadTexture(String idStr, net.minecraft.server.packs.resources.ResourceManager rm) {

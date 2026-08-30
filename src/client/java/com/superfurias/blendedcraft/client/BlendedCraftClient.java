@@ -24,6 +24,12 @@ public class BlendedCraftClient implements ClientModInitializer {
 			boolean isShift = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_LEFT_SHIFT) || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT);
 			boolean isCtrl = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_LEFT_CONTROL) || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_RIGHT_CONTROL);
 			if (!isShift && !isCtrl) {
+				// Material traits always visible (like enchant lines)
+				try {
+					for (String line : com.superfurias.blendedcraft.util.MaterialEffects.describe(stack)) {
+						lines.add(Component.literal(line).withStyle(s -> s.withColor(0x55C6FF).withItalic(false)));
+					}
+				} catch (Exception ignored) {}
 				lines.add(Component.literal("Hold §eShift§r for Stats §7| Hold §bCtrl§r for Materials").withStyle(s -> s.withColor(0xAAAAAA).withItalic(true)));
 				return;
 			}
