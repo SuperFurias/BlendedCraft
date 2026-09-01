@@ -20,6 +20,15 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+
+	runs {
+		client {
+			vmArg "-Xmx6G"
+		}
+		server {
+			vmArg "-Xmx6G"
+		}
+	}
 }
 
 dependencies {
